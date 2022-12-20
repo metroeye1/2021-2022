@@ -1,0 +1,1609 @@
+*&-------------------------------------------------------------------------------------*
+*& Report YTEST_HRABAP08_017
+*&-------------------------------------------------------------------------------------*
+*&
+*&-------------------------------------------------------------------------------------*
+REPORT YTEST_HRABAP08_017.
+*&
+*& Sample report for
+*& a) transferring a file from the application server
+*&    to an external file server via HTTP(S) protocol
+*&    Optionallly, the file can be encrypted before sendijng
+*& b) fetching a file from an external server via HTTP(S) and
+*&     saving it to the application server.
+*&     Optionally, the file can be decrypted before saving
+*&
+*& !!! Basic example only - coding needs th be adapted by customer !!!
+*&
+*& For adapting to customer specific needs, pay special attention
+*& to comments marked with '@CUSTOMER'
+*&
+*& !!! MESSAGE and WRITE statements !!!
+*& !!! to be used only for testing in dialog mode!!!
+*& Define appropriate messages and write to application log
+*& in order to run the program in batch mode
+*&
+*&-------------------------------------------------------------------------------------*
+*&
+*&-------------------------------------------------------------------------------------*
+*&
+*&-------------------------------------------------------------------------------------*
+*&
+*&
+*&-------------------------------------------------------------------------------------*
+
+
+*=======================================================
+* Local classes
+*=======================================================
+
+
+*=======================================================
+* lcl_file:
+* Represents the file, provides basic operations like SAVE, and
+* cryptographic operations
+*=======================================================
+CLASS LCL_FILE DEFINITION FINAL.
+
+  PUBLIC SECTION.
+
+    TYPES:
+      TTY_LINE TYPE STANDARD TABLE OF SSFDATA.
+
+    CONSTANTS GC_MODE_ORIG TYPE C VALUE '1' ##NO_TEXT.
+    CONSTANTS GC_MODE_DECRYPTED TYPE C VALUE '2' ##NO_TEXT.
+    CONSTANTS GC_MODE_ENCRYPTED TYPE C VALUE '3' ##NO_TEXT.
+    CONSTANTS GC_LINE_LENGTH TYPE I VALUE 255 ##NO_TEXT.
+
+    METHODS SAVE
+      IMPORTING
+        !IV_PATHNAME TYPE FILEINTERN
+        !IV_MODE     TYPE FLAG DEFAULT '2'.
+    METHODS ENCRYPT
+      IMPORTING
+        !IV_PSE       TYPE SSFAPPL
+        !IV_RECIPIENT TYPE CERTSUBJCT
+      RAISING
+        CX_CRYPTO_ERROR.
+    METHODS DECRYPT
+      IMPORTING
+        !IV_PSE       TYPE SSFAPPL
+        !IV_RECIPIENT TYPE CERTSUBJCT
+      RAISING
+        CX_CRYPTO_ERROR.
+    METHODS CREATE_FROM_XSTRING
+      IMPORTING
+        !IV_XSTRING  TYPE XSTRING
+        !IV_PATHNAME TYPE STRING
+        !IV_BYTES    TYPE I OPTIONAL.
+    METHODS LOAD_FROM_APPLSRV
+      IMPORTING
+        !IV_PATHNAME    TYPE FILEINTERN
+        !IV_FILENAME    TYPE STRING
+      RETURNING
+        VALUE(RV_SUBRC) TYPE I.
+    METHODS GET_MIMETYPE
+      RETURNING
+        VALUE(RV_MIMETYPE) TYPE W3CONTTYPE.
+    METHODS GET_XSTRING
+      IMPORTING
+        !IV_MODE    TYPE C
+      EXPORTING
+        !EV_XSTRING TYPE XSTRING
+        !EV_LENGTH  TYPE I
+        !EV_SUBRC   TYPE SYSUBRC.
+
+  PRIVATE SECTION.
+
+    DATA: MV_EXTENSION        TYPE STRING,
+          MT_DECRYPTED_LINE   TYPE TTY_LINE,
+          MT_ENCRYPTED_LINE   TYPE SAML2_PSE_BIN_DATA_T,
+          MT_SOURCE_LINE      TYPE TTY_LINE,
+          MV_DECRYPTED_LENGTH TYPE I,
+          MV_ENCRYPTED_LENGTH TYPE I,
+          MV_FILENAME         TYPE STRING,
+          MV_SOURCE_LENGTH    TYPE I,
+          MV_MIMETYPE         TYPE W3CONTTYPE.
+
+    METHODS SET_NAME_AND_TYPE
+      IMPORTING
+        !IV_PATHNAME TYPE STRING.
+ENDCLASS.
+
+
+
+CLASS LCL_FILE IMPLEMENTATION.
+
+  METHOD CREATE_FROM_XSTRING.
+*    IMPORTING
+*      !IV_XSTRING TYPE XSTRING
+*      !IV_PATHNAME TYPE STRING
+*      !IV_BYTES TYPE I OPTIONAL.
+
+    "-----------------------------------------------------------------------------
+    " Creates file content from given xstring and sets some
+    " instance attributes.
+    " Method can be used e.g. after retrieving a file via HTTP GET
+    "-----------------------------------------------------------------------------
+
+    DATA :
+      LV_XSTRING TYPE XSTRING,
+      LV_LINE    TYPE SSFDATA.
+
+    LV_XSTRING = IV_XSTRING.
+
+    IF IV_BYTES IS INITIAL.
+      MV_SOURCE_LENGTH = XSTRLEN( LV_XSTRING ).
+    ELSE.
+      MV_SOURCE_LENGTH = IV_BYTES.
+    ENDIF.
+
+    WHILE XSTRLEN( LV_XSTRING ) > 0.
+      LV_LINE = LV_XSTRING.
+      APPEND LV_LINE TO MT_SOURCE_LINE.
+      SHIFT LV_XSTRING LEFT BY GC_LINE_LENGTH PLACES IN BYTE MODE.
+    ENDWHILE.
+
+    SET_NAME_AND_TYPE( IV_PATHNAME ).
+
+  ENDMETHOD.
+
+
+  METHOD DECRYPT.
+*    IMPORTING
+*      !IV_PSE TYPE SSFAPPL
+*      !IV_RECIPIENT TYPE CERTSUBJCT
+*    RAISING
+*      CX_CRYPTO_ERROR.
+
+    "-----------------------------------------------------------------------------
+    " Decrypts the binary content of the original file and
+    " puts the result into mt_decrypted_line
+    "-----------------------------------------------------------------------------
+
+    FIELD-SYMBOLS:
+      <LS_SOURCE_LINE> TYPE SSFDATA.
+
+    DATA:
+      LS_ENCRYPTED_LINE TYPE SSFBIN,
+      LT_ENCRTYPED_LINE TYPE SAML2_PSE_BIN_DATA_T,
+      LV_SSFTOOLKIT     TYPE SSFTOOLKIT,
+      LV_STR_FORMAT     TYPE SSFFORM,
+      LV_STR_PROFILE    TYPE SSFPROF,
+      LV_CRC            TYPE SSFRETURN,
+      LT_RECIPIENT      TYPE TABLE OF SSFINFO,
+      LS_RECIPIENT      TYPE SSFINFO.
+
+
+    " Before decryption, we need to re-format the content:
+    " Decryption works with a structured line type, but
+    " the original content has a flat line type
+    LOOP AT MT_SOURCE_LINE ASSIGNING <LS_SOURCE_LINE>.
+      CLEAR LS_ENCRYPTED_LINE.
+      LS_ENCRYPTED_LINE-BINDATA = <LS_SOURCE_LINE>.
+      APPEND LS_ENCRYPTED_LINE TO MT_ENCRYPTED_LINE.
+    ENDLOOP.
+
+    CALL FUNCTION 'SSF_GET_PARAMETER'
+      EXPORTING
+        MANDT       = SY-MANDT
+        APPLICATION = IV_PSE
+      IMPORTING
+        SSFTOOLKIT  = LV_SSFTOOLKIT
+        STR_FORMAT  = LV_STR_FORMAT
+        STR_PROFILE = LV_STR_PROFILE
+      EXCEPTIONS
+        OTHERS      = 1.
+    IF SY-SUBRC <> 0.
+      WRITE: / 'SSF parameter read failed - see system log (SM21)'.
+      RAISE EXCEPTION TYPE CX_CRYPTO_ERROR.
+    ENDIF.
+
+    " function module needs a recipient list:
+    LS_RECIPIENT-ID = IV_RECIPIENT.
+    LS_RECIPIENT-PROFILE = LV_STR_PROFILE.
+    APPEND LS_RECIPIENT TO LT_RECIPIENT.
+
+    CALL FUNCTION 'SSF_KRN_DEVELOPE'
+      EXPORTING
+        SSFTOOLKIT            = LV_SSFTOOLKIT
+        STR_FORMAT            = LV_STR_FORMAT
+        OSTR_ENVELOPED_DATA_L = MV_SOURCE_LENGTH
+      IMPORTING
+        OSTR_OUTPUT_DATA_L    = MV_DECRYPTED_LENGTH
+        CRC                   = LV_CRC
+      TABLES
+        OSTR_ENVELOPED_DATA   = MT_ENCRYPTED_LINE
+        RECIPIENT             = LT_RECIPIENT
+        OSTR_OUTPUT_DATA      = MT_DECRYPTED_LINE
+      EXCEPTIONS
+        OTHERS                = 1.
+    IF SY-SUBRC <> 0 OR LV_CRC <> 0 OR MT_DECRYPTED_LINE IS INITIAL.
+      WRITE : / 'Decryption for file ', MV_FILENAME, ' failed - see system log (SM21)'.
+      RAISE EXCEPTION TYPE CX_CRYPTO_ERROR.
+    ELSE.
+      WRITE : / 'File ', MV_FILENAME, ' decrypted'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD ENCRYPT.
+*    IMPORTING
+*      !IV_PSE TYPE SSFAPPL
+*      !IV_RECIPIENT TYPE CERTSUBJCT
+*    RAISING
+*      CX_CRYPTO_ERROR.
+
+    "-----------------------------------------------------------------------------
+    " Encrypts the original binary file content using the given PSE and recipient,
+    " and puts the result into mt_encrypted_line
+    "-----------------------------------------------------------------------------
+
+    DATA:
+      LV_SSFTOOLKIT       TYPE SSFTOOLKIT,
+      LV_STR_FORMAT       TYPE SSFFORM,
+      LV_STR_PAB          TYPE SSFPAB,
+      LV_STR_PAB_PASSWORD TYPE SSFPABPW,
+      LV_CRC              TYPE SSFRETURN,
+      LT_RECIPIENT        TYPE TABLE OF SSFINFO,
+      LS_RECIPIENT        TYPE SSFINFO.
+
+    CALL FUNCTION 'SSF_GET_PARAMETER'
+      EXPORTING
+        MANDT            = SY-MANDT
+        APPLICATION      = IV_PSE
+      IMPORTING
+        SSFTOOLKIT       = LV_SSFTOOLKIT
+        STR_FORMAT       = LV_STR_FORMAT
+        STR_PAB          = LV_STR_PAB
+        STR_PAB_PASSWORD = LV_STR_PAB_PASSWORD
+      EXCEPTIONS
+        OTHERS           = 1.
+    IF SY-SUBRC <> 0.
+      WRITE: / 'SSF parameter read failed - see system log (SM21)'.
+      RAISE EXCEPTION TYPE CX_CRYPTO_ERROR.
+    ENDIF.
+
+    " put the specified recipient into the list
+    LS_RECIPIENT-ID = IV_RECIPIENT.
+    APPEND LS_RECIPIENT TO LT_RECIPIENT.
+
+    CALL FUNCTION 'SSF_KRN_ENVELOPE'
+      EXPORTING
+        SSFTOOLKIT             = LV_SSFTOOLKIT
+        STR_FORMAT             = LV_STR_FORMAT
+        OSTR_INPUT_DATA_L      = MV_SOURCE_LENGTH
+        STR_PAB                = LV_STR_PAB
+        STR_PAB_PASSWORD       = LV_STR_PAB_PASSWORD
+      IMPORTING
+        OSTR_ENVELOPTED_DATA_L = MV_ENCRYPTED_LENGTH
+        CRC                    = LV_CRC
+      TABLES
+        OSTR_INPUT_DATA        = MT_SOURCE_LINE
+        RECIPIENT_LIST         = LT_RECIPIENT
+        OSTR_ENVELOPTED_DATA   = MT_ENCRYPTED_LINE
+      EXCEPTIONS
+        OTHERS                 = 1.
+    IF SY-SUBRC <> 0 OR LV_CRC <> 0 OR MT_ENCRYPTED_LINE IS INITIAL.
+      WRITE : / 'File ', MV_FILENAME, 'encryption failed - see system log (SM21)'.
+      RAISE EXCEPTION TYPE CX_CRYPTO_ERROR.
+    ELSE.
+      WRITE : / 'File ', MV_FILENAME, ' encrypted'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD GET_MIMETYPE.
+*    RETURNING
+*      VALUE(rv_mimetype) TYPE w3conttype.
+    RV_MIMETYPE = MV_MIMETYPE.
+  ENDMETHOD.
+
+
+  METHOD GET_XSTRING.
+*    IMPORTING
+*      !IV_MODE TYPE C
+*    EXPORTING
+*      !EV_XSTRING TYPE XSTRING
+*      !EV_LENGTH TYPE I
+*      !EV_SUBRC TYPE SYSUBRC.
+
+    "-----------------------------------------------------------------------------
+    " Returns the file content as xstring
+    " Depending on iv_mode, the original, decrypted or encrypted
+    " content is returned:
+    " 1 = original
+    " 2 = decrypted
+    " 3 = encrypted
+    "-----------------------------------------------------------------------------
+
+    CONSTANTS LC_LINE_LENGTH TYPE I VALUE 255.
+    FIELD-SYMBOLS <FS_LINE> TYPE SSFBIN.
+
+    DATA :
+      LT_LINE             TYPE TTY_LINE,
+      LV_LENGTH           TYPE I,
+      LV_CUMULATED_LENGTH TYPE I.
+
+
+    CLEAR:
+      EV_XSTRING,
+      EV_LENGTH,
+      EV_SUBRC.
+
+
+    CASE IV_MODE.
+      WHEN GC_MODE_ENCRYPTED.
+        " Line type is structured -> requires special handling.
+        EV_LENGTH = MV_ENCRYPTED_LENGTH.
+        LOOP AT MT_ENCRYPTED_LINE ASSIGNING <FS_LINE>.
+          " append current line at the correct position
+          CONCATENATE EV_XSTRING(LV_CUMULATED_LENGTH) <FS_LINE>-BINDATA INTO EV_XSTRING IN BYTE MODE.
+          LV_CUMULATED_LENGTH = LV_CUMULATED_LENGTH + LC_LINE_LENGTH.
+        ENDLOOP.
+        " set xstring to correct length ( as provided by the encryption routine)
+        EV_XSTRING = EV_XSTRING(MV_ENCRYPTED_LENGTH).
+        EV_LENGTH = MV_ENCRYPTED_LENGTH.
+        RETURN.
+      WHEN GC_MODE_ORIG.
+        LV_LENGTH = MV_SOURCE_LENGTH.
+        LT_LINE = MT_SOURCE_LINE.
+      WHEN GC_MODE_DECRYPTED.
+        LV_LENGTH = MV_DECRYPTED_LENGTH.
+        LT_LINE = MT_DECRYPTED_LINE.
+      WHEN OTHERS.
+        EV_SUBRC = 1.
+        RETURN.
+    ENDCASE.
+
+    " Original and decrypted lines both have unstructured line type
+    CONCATENATE LINES OF LT_LINE INTO EV_XSTRING IN BYTE MODE.
+    " set xstring to correct length:
+    " wrong length may cause errors in subsequent processing
+    EV_XSTRING = EV_XSTRING(LV_LENGTH).
+    EV_LENGTH = LV_LENGTH.
+
+  ENDMETHOD.
+
+
+  METHOD LOAD_FROM_APPLSRV.
+*    IMPORING
+*      !IV_ATHNAME TYPE FILEINTERN
+*      !IV_FILENAME TYPE STRING
+*    RETURNING
+*      VALUE(RV_SUBRC) TYPE I.
+
+    "-----------------------------------------------------------------------------
+    " Reads the file content from the specified location on the
+    " application server and sets some instance attributes
+    "-----------------------------------------------------------------------------
+
+    DATA:
+      LV_FILENAME(400) TYPE C,
+      LV_MSG           TYPE STRING,
+      LV_FLAG          TYPE ABAP_BOOL,
+      LV_PATHNAME      TYPE STRING,
+      LV_MESSAGE       TYPE STRING.
+
+    CLEAR RV_SUBRC.
+
+    "-----------------------------------------------------------------------------
+    " !!! Programming guidelines !!!
+    " Pervent unauthorized file access by using
+    " logical paths and file names
+    "-----------------------------------------------------------------------------
+
+**********    CALL FUNCTION 'FILE_GET_NAME'
+**********       EXPORTING
+**********         LOGICAL_FILENAME = IV_PATHNAME
+**********         PARAMETER_1 = IV_FILENAME
+**********       IMPORTING
+**********         EMERGENCY_FLAG = LV_FLAG
+**********         FILE_NAME = LV_PATHNAME
+**********       EXCEPTONS
+**********         FILE_NOT_FOUND = 1
+**********         OTHERS = 2.
+**********
+**********    RV_SUBRC = SY-SUBRC.
+**********    IF RV_SUBRC <> 0 OR LV_FLAG IS NOT INITIAL.
+**********       MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+**********             WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4
+**********             INTO LV_MESSAGE
+**********       WRITE : / LV_MESSAGE.
+**********       WRITE : / 'ERROR IN FILE_GET_NAME - file will not be processed.'.
+**********       RETURN.
+**********    ENDIF.
+**********
+**********    CALL FUNCTION 'FILE_VALIDATE_NAME'
+**********       EXPORTING
+**********          LOGICAL_FILENAME = IV_PATHNAME
+**********          PARAMETER_1 = IV_FILENAME
+**********       CHANGING
+**********         PHYSICAL_FILENAME = LV_PATHNAME
+**********       EXCEPTIONS
+**********         LOGICAL_FILENAME_NOT_FOUND = 1
+**********         VALIDATION_FAILED = 2
+**********         OTHERS = 3.
+**********     RV_SUBRC = SY-SUBRC.
+**********
+**********    IF RV_SUBRC <> 0.
+**********       MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+**********           WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV3
+**********           INTO LV_MESSAGE.
+**********       WRITE : / LV_MESSAGE.
+**********       WRITE : / 'ERROR IN FILE_VALIDATE_NAME - file will not be processed.'.
+**********       RETURN.
+**********    ENDIF.
+
+    " Read as BINARY in order to handle all mime types correctly
+    LV_FILENAME = '/mig/HR_PHOTO/SKMG/20002426.JPG'."LV_PATHNAME.
+    CALL FUNCTION 'SCMS_UPLOAD'
+      EXPORTING
+        FILENAME = LV_FILENAME " full name including path
+        BINARY   = 'X'
+        FRONTEND = SPACE
+      IMPORTING
+        FILESIZE = MV_SOURCE_LENGTH
+      TABLES
+        DATA     = MT_SOURCE_LINE
+      EXCEPTIONS
+        ERROR    = 1
+        OTHERS   = 2.
+    RV_SUBRC = SY-SUBRC.
+    IF RV_SUBRC <> 0.
+      MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+                   WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4 INTO LV_MSG.
+      WRITE : / LV_MSG.
+      RETURN.
+    ENDIF.
+
+    SET_NAME_AND_TYPE( LV_PATHNAME ).
+
+  ENDMETHOD.
+
+
+  METHOD SAVE.
+*     IMPORTING
+*       !IV_PATHNAME TYPE FILEINTERN
+*       !IV_MODE TYPE FLAG DEFAULT '2'.
+
+    "-----------------------------------------------------------------------------
+    " Saves the file to the target folder on the application server.
+    " Depending on iv_mode, the original, decrypted or encrypted file
+    " shall be saved.
+    " 1 = original
+    " 2 = decrypted
+    " 3 = encrypted
+    "-----------------------------------------------------------------------------
+
+    DATA:
+      LV_PATHNAME  TYPE STRING,
+      LV_LINE      TYPE SSFDATA,
+      LT_LINE      TYPE TTY_LINE,
+      LV_LENGTH    TYPE I,
+      LV_CRYPTINFO TYPE STRING,
+      LV_MESSAGE   TYPE STRING,
+      LV_FLAG      TYPE ABAP_BOOL.
+
+    FIELD-SYMBOLS:
+        <FS_LINE> TYPE SSFBIN.
+
+
+    "-----------------------------------------------------------------------------
+    " !!! Programming guidelines !!!
+    " Pervent unauthorized file access by using
+    " logical paths and file names
+    "-----------------------------------------------------------------------------
+
+    CALL FUNCTION 'FILE_GET_NAME'
+      EXPORTING
+        LOGICAL_FILENAME = IV_PATHNAME
+        PARAMETER_1      = MV_FILENAME
+      IMPORTING
+        EMERGENCY_FLAG   = LV_FLAG
+        FILE_NAME        = LV_PATHNAME
+      EXCEPTIONS
+        FILE_NOT_FOUND   = 1
+        OTHERS           = 2.
+
+    IF SY-SUBRC <> 0 OR LV_FLAG IS NOT INITIAL.
+      MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+            WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4
+            INTO LV_MESSAGE.
+      WRITE : / LV_MESSAGE.
+      WRITE : / 'ERROR IN FILE_GET_NAME - file will not be stored.'.
+      RETURN.
+    ENDIF.
+
+    CALL FUNCTION 'FILE_VALIDATE_NAME'
+      EXPORTING
+        LOGICAL_FILENAME           = IV_PATHNAME
+        PARAMETER_1                = MV_FILENAME
+      CHANGING
+        PHYSICAL_FILENAME          = LV_PATHNAME
+      EXCEPTIONS
+        LOGICAL_FILENAME_NOT_FOUND = 1
+        VALIDATION_FAILED          = 2
+        OTHERS                     = 3.
+
+    IF SY-SUBRC <> 0.
+      MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+          WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV3
+          INTO LV_MESSAGE.
+      WRITE: LV_MESSAGE.
+      WRITE : / 'ERROR IN FILE_VALIDATE_NAME - file will not be stored.'.
+      RETURN.
+    ENDIF.
+
+    " consolidate different data tables and formats
+    CASE IV_MODE.
+      WHEN GC_MODE_ENCRYPTED.
+        LV_CRYPTINFO = 'Encrypted file'.
+        " Line type is structured -> requires special handling
+        LV_LENGTH = MV_ENCRYPTED_LENGTH.
+        LOOP AT MT_ENCRYPTED_LINE ASSIGNING <FS_LINE>.
+          APPEND <FS_LINE>-BINDATA TO LT_LINE.
+        ENDLOOP.
+      WHEN GC_MODE_ORIG.
+        LV_CRYPTINFO = 'ORIGINAL FILE.'.
+        LV_LENGTH = MV_SOURCE_LENGTH.
+        LT_LINE = MT_SOURCE_LINE.
+      WHEN GC_MODE_DECRYPTED.
+        LV_CRYPTINFO = 'Decrypted file'.
+        LV_LENGTH = MV_DECRYPTED_LENGTH.
+        LT_LINE = MT_DECRYPTED_LINE.
+      WHEN OTHERS.
+        RETURN.
+    ENDCASE.
+
+    IF LV_LENGTH > 0.
+      " Could be 0 e.q. if you are trying to save the decrypted version of
+      " a flie that has never been decrypted.
+
+      OPEN DATASET LV_PATHNAME FOR OUTPUT IN BINARY MODE.
+      LOOP AT LT_LINE INTO LV_LINE.
+        IF LV_LENGTH LT GC_LINE_LENGTH. " 255
+          TRANSFER LV_LINE(LV_LENGTH) TO LV_PATHNAME.
+          EXIT. " from LOOP.
+        ELSE.
+          TRANSFER LV_LINE TO LV_PATHNAME.
+          LV_LENGTH = LV_LENGTH - GC_LINE_LENGTH.
+        ENDIF.
+      ENDLOOP.
+      CLOSE DATASET LV_PATHNAME.
+      WRITE: / LV_CRYPTINFO, ' saved: ', LV_PATHNAME.
+    ELSE.
+      WRITE : LV_CRYPTINFO, MV_FILENAME, 'is empty - not saved.'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD SET_NAME_AND_TYPE.
+*    IMPORTING
+*      !IV_PATHNAME TYPE STRING
+
+    "-----------------------------------------------------------------------------
+    " Determines file name and mime type
+    " and stores them in instance attributes
+    "-----------------------------------------------------------------------------
+
+    DATA:
+      LT_STRING    TYPE STRING_TABLE,
+      LV_COUNT     TYPE I,
+      LV_EXTENSION TYPE W3FILEEXT.
+
+
+    CALL FUNCTION 'TRINT_SPLIT_FILE_AND_PATH'
+      EXPORTING
+        FULL_NAME     = IV_PATHNAME
+      IMPORTING
+        STRIPPED_NAME = MV_FILENAME
+      EXCEPTIONS
+        X_ERROR       = 1
+        OTHERS        = 2.
+    IF SY-SUBRC <> 0.
+      WRITE : / 'ERROR when splitting path.'.
+      RETURN.
+    ENDIF.
+
+    CLEAR LT_STRING.
+    SPLIT MV_FILENAME AT '.' INTO TABLE LT_STRING.
+    DESCRIBE TABLE LT_STRING LINES LV_COUNT.
+    IF LV_COUNT GT 1.
+      READ TABLE LT_STRING INTO MV_EXTENSION INDEX LV_COUNT.
+    ENDIF.
+
+    " string variable mv_extension cannot be passed into the function module
+    " SDOK_MIMETYPE_GET will seet a default if there is no extension
+    LV_EXTENSION = MV_EXTENSION.
+    CALL FUNCTION 'SDOK_MIMETYPE_GET'
+      EXPORTING
+        EXTENSION = LV_EXTENSION
+      IMPORTING
+        MIMETYPE  = MV_MIMETYPE.
+
+  ENDMETHOD.
+ENDCLASS.
+
+*=======================================================
+* lcl_file_http:
+* Utility class for http file transfer in both directions
+*=======================================================
+CLASS LCL_FILE_HTTP DEFINITION FINAL.
+
+  PUBLIC SECTION.
+
+    METHODS CONSTRUCTOR
+      IMPORTING
+        !IV_RFC_DEST TYPE RFCDEST
+      RAISING
+        !CX_DEST_HTTP_ABAP_SPECIAL
+      .
+
+    METHODS SEND
+      IMPORTING
+        !IV_TARGET_FOLDER TYPE STRING
+        !IV_FILE_NAME     TYPE STRING
+        !IV_CONTENT_TYPE  TYPE STRING
+        !IV_CONTENT       TYPE XSTRING
+        !IV_BYTES         TYPE I.
+
+    METHODS GET
+      IMPORTING
+        !IV_SOURCE_PATH TYPE STRING
+      EXPORTING
+        !EV_CONTENT     TYPE XSTRING
+        !EV_BYTES       TYPE I
+        !EV_SUBRC       TYPE SYSUBRC.
+
+  PRIVATE SECTION.
+
+    DATA MR_CLIENT TYPE REF TO IF_HTTP_CLIENT.
+    CONSTANTS MC_PROTOCOL TYPE STRING VALUE 'HTTP/1.1' ##NO_TEXG.
+
+    METHODS SET_URI
+      IMPORTING
+        !IV_FILE_NAME     TYPE STRING
+        !IV_TARGET_FOLDER TYPE STRING
+      RETURNING
+        VALUE(RV_URI)     TYPE STRING.
+ENDCLASS.
+
+
+
+CLASS LCL_FILE_HTTP IMPLEMENTATION.
+
+  METHOD CONSTRUCTOR.
+*    IMPORTING
+*      !IV_RFC_DEST TYPE RFCDEST
+*    RAISING
+*       !CX_DEST_HTTP_ABAP_SPECIAL
+
+
+    DATA: LV_RFC_DEST TYPE CHAR32.
+
+    LV_RFC_DEST = IV_RFC_DEST.
+
+    " create http client for file transfer
+    CALL METHOD CL_HTTP_CLIENT=>CREATE_BY_DESTINATION
+      EXPORTING
+        DESTINATION              = LV_RFC_DEST
+      IMPORTING
+        CLIENT                   = MR_CLIENT
+      EXCEPTIONS
+        ARGUMENT_NOT_FOUND       = 1
+        DESTINATION_NOT_FOUND    = 2
+        DESTINATION_NO_AUTHORITY = 3
+        PLUGIN_NOT_ACTIVE        = 4
+        INTERNAL_ERROR           = 5
+        OTHERS                   = 6.
+
+    IF SY-SUBRC IS NOT INITIAL.
+      " not semantically fitting, but nothing better available in package SHTTP
+      RAISE EXCEPTION TYPE CX_DEST_HTTP_ABAP_SPECIAL.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD GET.
+*    IMPORTING
+*      !IV_SOURCE_PATH TYPE STRING
+*    EXPORTING
+*      !EV_CONTENT TYPE XSTRING
+*      !EV_BYTES TYPE I
+*      !EV_SUBRC TYPE SYSUBRC.
+
+    "-----------------------------------------------------------------------------
+    " Sets request attributes,
+    " gets file from the remote server,
+    " and handles errors
+    "-----------------------------------------------------------------------------
+
+    DATA: LV_XSTRING     TYPE XSTRING,
+          LV_PATH        TYPE STRING,
+          LR_HTTP_ENTITY TYPE REF TO IF_HTTP_ENTITY,
+          LV_CODE        TYPE I,
+          LV_REASON      TYPE STRING.
+
+    CLEAR EV_SUBRC.
+    CLEAR EV_BYTES.
+    CLEAR EV_CONTENT.
+
+    CALL METHOD MR_CLIENT->REFRESH_REQUEST
+      EXCEPTIONS
+        HTTP_ACTION_FAILED = 1
+        OTHERS             = 2.
+    IF SY-SUBRC <> 0.
+      WRITE : / 'Could not refresh HTTP client - processing terminated.'.
+      RETURN.
+    ENDIF.
+
+    CONCATENATE '/' IV_SOURCE_PATH INTO LV_PATH.
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>REQUEST_URI
+        VALUE = MR_CLIENT->CREATE_ABS_URL( PATH = LV_PATH ).
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>REQUEST_METHOD
+        VALUE = 'GET'.
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>SERVER_PROTOCOL
+        VALUE = MC_PROTOCOL.
+
+    CALL METHOD MR_CLIENT->SEND
+      EXPORTING
+        TIMEOUT = 0
+      EXCEPTIONS
+        OTHERS  = 0.
+
+    CALL METHOD MR_CLIENT->RECEIVE
+      EXCEPTIONS
+        HTTP_COMMUNICATION_FAILURE = 1
+        HTTP_INVALID_STATE         = 2
+        HTTP_PROCESSING_FAILED     = 3
+        OTHERS                     = 4.
+
+    IF SY-SUBRC NE 0.
+      EV_SUBRC = SY-SUBRC.
+      WRITE : / 'ERROR for file', IV_SOURCE_PATH, ': GET failed'.
+      WRITE : / '    Reason:  '.
+      CASE EV_SUBRC.
+        WHEN 1.
+          WRITE 'http communication failure'.
+        WHEN 2.
+          WRITE 'http invalid state'.
+        WHEN 3.
+          WRITE 'http processing failed'.
+        WHEN OTHERS.
+          WRITE 'not specified'.
+      ENDCASE.
+      RETURN.
+    ENDIF.
+
+    " Check the status of the response:
+    " Previous mthod calls may not have raised an exception
+    " even though the GET was not successful (e.g. if the file was not found)
+    CALL METHOD MR_CLIENT->RESPONSE->GET_STATUS
+      IMPORTING
+        CODE   = LV_CODE
+        REASON = LV_REASON.
+
+    IF LV_CODE = '200'. "200 = everything OK
+      LR_HTTP_ENTITY ?= MR_CLIENT->RESPONSE.
+      " ----------------------------------------------------------------------------------
+      " @CUSTOMER.
+      " !!! IMPORTANT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      " !!! Activate the virus scan when retrieving data form the remote servser
+      " !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      " ----------------------------------------------------------------------------------
+      CALL METHOD LR_HTTP_ENTITY->GET_DATA
+        EXPORTING
+          VSCAN_SCAN_ALWAYS = IF_HTTP_ENTITY=>CO_CONTENT_CHECK_ALWAYS " !!! switch on virus scan !!!
+        RECEIVING
+          DATA              = LV_XSTRING.
+
+      IF LV_XSTRING IS INITIAL.
+        EV_SUBRC = 1.
+        WRITE: / 'ERROR: method GET_DATA returned an empty xstring for file ', IV_SOURCE_PATH.
+        RETURN.
+      ENDIF.
+
+      EV_CONTENT = LV_XSTRING.
+      EV_BYTES = XSTRLEN( LV_XSTRING ).
+
+    ELSE.
+      WRITE : / 'HTTP ERROR for file : ', IV_SOURCE_PATH, ', Code: ', LV_CODE, ', Reason: ', LV_REASON.
+      EV_SUBRC = 1.
+    ENDIF.
+
+  ENDMETHOD. " get
+
+
+  METHOD SEND.
+    "   IMPORTING
+    "     !IV_TARGET_FOLDER TYPE STRING
+    "     !IV_FILE_NAME TYPE STRING
+    "     !IV_CONTENT_TYPE TYPE STRING
+    "     !IV_CONTENT TYPE XSTRING
+    "     !IV_BYTES TYPE I
+
+    " ----------------------------------------------------------------------------------
+    " Sets request attributes,
+    " sends file to the remote servers,
+    " and handles errors
+    " ----------------------------------------------------------------------------------
+
+    DATA:
+      LV_CODE   TYPE I,
+      LV_REASON TYPE STRING.
+
+
+    CALL METHOD MR_CLIENT->REFRESH_REQUEST
+      EXCEPTIONS
+        HTTP_ACTION_FAILED = 1
+        OTHERS             = 2.
+    IF SY-SUBRC <> 0.
+      WRITE : / 'Could not refresh HTTP client - processing terminated. '.
+      RETURN.
+    ENDIF.
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>REQUEST_URI
+        VALUE = SET_URI( IV_TARGET_FOLDER = IV_TARGET_FOLDER
+                               IV_FILE_NAME = IV_FILE_NAME ).
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>REQUEST_METHOD
+        VALUE = 'PUT'.
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = IF_HTTP_HEADER_FIELDS_SAP=>SERVER_PROTOCOL
+        VALUE = MC_PROTOCOL.
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_HEADER_FIELD
+      EXPORTING
+        NAME  = 'content-type'
+        VALUE = IV_CONTENT_TYPE.
+
+    CALL METHOD MR_CLIENT->REQUEST->SET_DATA
+      EXPORTING
+        DATA   = IV_CONTENT
+        LENGTH = IV_BYTES.
+
+    CALL METHOD MR_CLIENT->SEND
+      EXPORTING
+        TIMEOUT = 0.
+
+    CALL METHOD MR_CLIENT->RECEIVE
+      EXCEPTIONS
+        HTTP_COMMUNICATION_FAILURE = 1
+        HTTP_INVALID_STATE         = 2
+        HTTP_PROCESSING_FAILED     = 3
+        OTHERS                     = 4.
+
+    IF SY-SUBRC NE 0.
+      WRITE : / 'ERROR for file ', IV_FILE_NAME, ': creation of remote file failed'.
+      WRITE : / '     Reason: '.
+      CASE SY-SUBRC.
+        WHEN 1.
+          WRITE 'http communication failure'.
+        WHEN 2.
+          WRITE 'http invalid state'.
+        WHEN 3.
+          WRITE 'http processing failed'.
+        WHEN OTHERS.
+          WRITE 'not specified'.
+      ENDCASE.
+    ELSE.
+      CALL METHOD MR_CLIENT->RESPONSE->GET_STATUS
+        IMPORTING
+          CODE   = LV_CODE
+          REASON = LV_REASON.
+
+      IF LV_CODE = '201'. " 201 = Created.
+        WRITE : / 'File ', IV_FILE_NAME, ' sent.'.
+      ELSE.
+        WRITE : / 'HTTP ERROR when sending file: ', IV_FILE_NAME, ', Code:', LV_CODE, ', Reason:', LV_REASON.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+
+* <SIGNATURE> --------------------------------------------------------------------------------------------------------------
+* | Instance Protected Method LCL_FILE_http->SET_URI
+* +-------------------------------------------------------------------------------------------------------------------------------
+* | [--->] IV_FILE_NAME TYPE STRING
+* | [--->] IV_TARGET_FOLDER TYPE STRING
+* | [<-0] RV_URI TYPE STRING
+* +-------------------------------------------------------------------------------------------------------------------------------
+  METHOD SET_URI.
+*    IMPORTING
+*      !IV_FILE_NAME TYPE STRING
+*      !IV_TARGET_FOLDER TYPE STRING
+*    RETURNING
+*      VALUE(RV_URI) TYPE STRING
+
+    " Sets the full URI for the file in the target system
+
+    DATA LV_PATH TYPE STRING.
+
+    CONCATENATE '/' IV_TARGET_FOLDER '/' IV_FILE_NAME INTO LV_PATH.
+    CALL METHOD MR_CLIENT->CREATE_ABS_URL
+      EXPORTING
+        PATH = LV_PATH
+      RECEIVING
+        URL  = RV_URI.
+
+  ENDMETHOD.
+ENDCLASS.
+
+
+* ======================================================================
+* lcl_sample:
+* Handels the processing according to the parameters set
+* by the user on the selection screen of the report
+* ======================================================================
+CLASS LCL_SAMPLE DEFINITION FINAL.
+
+  PUBLIC SECTION.
+
+    METHODS MAIN
+      IMPORTING
+        !IV_DEST  TYPE RFCDEST
+        !IV_OUT   TYPE ABAP_BOOL
+        !IV_MULTI TYPE ABAP_BOOL
+        !IV_LSRC  TYPE STRING
+        !IV_RSRC  TYPE STRING
+        !IV_RFOLD TYPE STRING
+        !IV_ENCR  TYPE ABAP_BOOL
+        !IV_DECR  TYPE ABAP_BOOL
+        !IV_PSE   TYPE SSFAPPL
+        !IV_REC   TYPE CERTSUBJCT
+      .
+
+    METHODS PROCESS_OUTBOUND
+      IMPORTING
+        !IV_MULTI TYPE ABAP_BOOL
+        !IV_LSRC  TYPE STRING
+        !IV_RFOLD TYPE STRING
+        !IV_ENCR  TYPE ABAP_BOOL
+        !IV_PSE   TYPE SSFAPPL
+        !IV_REC   TYPE CERTSUBJCT
+      .
+
+    METHODS PROCESS_INBOUND
+      IMPORTING
+        !IV_RSRC TYPE STRING
+        !IV_DECR TYPE ABAP_BOOL
+        !IV_PSE  TYPE SSFAPPL
+        !IV_REC  TYPE CERTSUBJCT
+      .
+
+    METHODS GET_FILE_LIST
+      IMPORTING
+        !IV_MULTI    TYPE ABAP_BOOL
+        !IV_LSRC     TYPE STRING
+      EXPORTING
+        !ET_FILENAME TYPE STRING_TABLE
+      .
+
+  PRIVATE SECTION.
+
+***********************************************************************
+*** @CUSTOMER:
+*** Use logical file names in order to prevent directory traversal.
+*** Ther user only has the possibility to select the file name, but not
+*** the directory on ther application server.
+*** If you want to have some flexibility in the names of the actual files,
+*** customize your logical file names such that the name of the physical
+*** file is used as (part of) the logical file name.
+*** Otherwise, simply use hard-coded file names as well, and do not offer
+*** the user thepossibility to enter them.
+***
+***Use transaction FILE to maintain logical paths and file names
+***********************************************************************
+
+    CONSTANTS:GC_LOGICAL_FNAME_INBOUND  TYPE FILEINTERN VALUE 'ZSAMPLE_INBOUND',
+              GC_LOGICAL_FNAME_OUTBOUND TYPE FILEINTERN VALUE '/mig/HRPHOTO/SKMG/'.
+
+    DATA: MO_FILE_HTTP TYPE REF TO LCL_FILE_HTTP.
+
+ENDCLASS.
+
+CLASS LCL_SAMPLE IMPLEMENTATION.
+
+  METHOD MAIN.
+*   IMPORTING
+*     !IV_DEST TYPE RECDEST
+*     !IV_OUT TYPE ABAP_BOOL
+*     !IV_MULTI TYPE ABAP_BOOL
+*     !IV_LSRC TYPE STRING
+*     !IV_RSRC TYPE STRING
+*     !IV_RFOLD TYPE STRING
+*     !IV_ENCR TYPE ABAP_BOOL
+*     !IV_DECR TYPE ABAP_BOOL
+*     !IV_PSE TYPE SSFAPPL
+*     !IV_REC TYPE CERTSUJCT
+*     .
+
+
+    TRY.
+        CREATE OBJECT MO_FILE_HTTP
+          EXPORTING
+            IV_RFC_DEST = IV_DEST.
+
+      CATCH CX_DEST_HTTP_ABAP_SPECIAL.
+        MESSAGE E016(PG) WITH 'Error in http client creation' ' - processing terminated'.
+        RETURN.
+    ENDTRY.
+
+    IF IV_OUT = ABAP_TRUE.
+      CALL METHOD ME->PROCESS_OUTBOUND
+        EXPORTING
+          !IV_MULTI = IV_MULTI
+          !IV_LSRC  = IV_LSRC
+          !IV_RFOLD = IV_RFOLD
+          !IV_ENCR  = IV_ENCR
+          !IV_PSE   = IV_PSE
+          !IV_REC   = IV_REC.
+    ELSE.
+      CALL METHOD ME->PROCESS_INBOUND
+        EXPORTING
+          !IV_RSRC = IV_RSRC
+          !IV_DECR = IV_DECR
+          !IV_PSE  = IV_PSE
+          !IV_REC  = IV_REC.
+    ENDIF.
+
+    WRITE : / 'Processing finished.'.
+
+  ENDMETHOD.
+
+  METHOD PROCESS_OUTBOUND.
+*     !IV_MULTI TYPE ABAP_BOOL
+*     !IV_LSRC TYPE STIRNG
+*     !IV_RFOLD TYPE STRING
+*     !IV_ENCR TYPE ABAP_BOOL
+*     !IV_PSE TYPE SSFAPPL
+*     !IV_REC TYPE CERTSUBJCT
+
+    " ----------------------------------------------------------------------------------
+    " Read files from the application server,
+    " encrypt them if requested,
+    " and send them to the remote server
+    " ----------------------------------------------------------------------------------
+
+    DATA:
+      LT_FILENAME TYPE STRING_TABLE,
+      LR_FILE     TYPE REF TO LCL_FILE,
+      LV_RC       TYPE SYSUBRC,
+      LV_XSTRING  TYPE XSTRING,
+      LV_BYTES    TYPE I
+      .
+
+    FIELD-SYMBOLS:
+                <LV_FILENAME> TYPE STRING.
+
+    CALL METHOD GET_FILE_LIST
+      EXPORTING
+        IV_MULTI    = IV_MULTI
+        IV_LSRC     = IV_LSRC
+      IMPORTING
+        ET_FILENAME = LT_FILENAME. " file names without path
+
+    IF LT_FILENAME IS INITIAL.
+      WRITE : / 'No files in local source directory - nothing to be sent'.
+      RETURN.
+    ENDIF.
+
+
+    LOOP AT LT_FILENAME ASSIGNING <LV_FILENAME>.
+
+      CREATE OBJECT LR_FILE.
+
+      " Load file from application server
+      " Logical file name is checked inside load_from_applsrv
+      CALL METHOD LR_FILE->LOAD_FROM_APPLSRV
+        EXPORTING
+          IV_PATHNAME = GC_LOGICAL_FNAME_OUTBOUND
+          IV_FILENAME = <LV_FILENAME>
+        RECEIVING
+          RV_SUBRC    = LV_RC.
+
+      IF LV_RC <> 0.
+        WRITE: / 'Could not load file', <LV_FILENAME>, ' - ksipping it'.
+        CONTINUE.
+      ENDIF.
+
+      IF IV_ENCR = ABAP_TRUE.
+        TRY.
+            CALL METHOD LR_FILE->ENCRYPT
+              EXPORTING
+                IV_PSE       = IV_PSE
+                IV_RECIPIENT = IV_REC.
+          CATCH CX_CRYPTO_ERROR.
+            WRITE : / 'Error in encryption - ', 'processing terminated'.
+            RETURN.
+        ENDTRY.
+        " use encrypted content for sending
+        CALL METHOD LR_FILE->GET_XSTRING
+          EXPORTING
+            IV_MODE    = LCL_FILE=>GC_MODE_ENCRYPTED
+          IMPORTING
+            EV_XSTRING = LV_XSTRING
+            EV_LENGTH  = LV_BYTES
+            EV_SUBRC   = LV_RC.
+      ELSE.
+        " use original content for sending
+        CALL METHOD LR_FILE->GET_XSTRING
+          EXPORTING
+            IV_MODE    = LCL_FILE=>GC_MODE_ORIG
+          IMPORTING
+            EV_XSTRING = LV_XSTRING
+            EV_LENGTH  = LV_BYTES
+            EV_SUBRC   = LV_RC.
+      ENDIF.
+
+      IF LV_RC <> 0.
+        CONTINUE.
+      ENDIF.
+
+      CALL METHOD MO_FILE_HTTP->SEND
+        EXPORTING
+          IV_TARGET_FOLDER = IV_RFOLD
+          IV_FILE_NAME     = <LV_FILENAME>
+          IV_CONTENT_TYPE  = LR_FILE->GET_MIMETYPE( )
+          IV_CONTENT       = LV_XSTRING
+          IV_BYTES         = LV_BYTES.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD PROCESS_INBOUND.
+*    IMPORTING
+*     !IV_RSRC TYPE STIRNG
+*     !IV_DECR TYPE ABAP_BOOL
+*     !IV_PSE TYPE SSFAPPL
+*     !IV_REC TYPE CERTSUBJCT
+
+    " ----------------------------------------------------------------------------------
+    " Retrieve file from the remoote server,
+    " decrypt them if requested,
+    " and store it on the application server
+    " ----------------------------------------------------------------------------------
+
+    DATA:
+      LR_FILE    TYPE REF TO LCL_FILE,
+      LV_CONTENT TYPE XSTRING,
+      LV_BYTES   TYPE I,
+      LV_RC      TYPE SYSUBRC,
+      LV_MODE    TYPE C.
+
+    CALL METHOD MO_FILE_HTTP->GET
+      EXPORTING
+        IV_SOURCE_PATH = IV_RSRC
+      IMPORTING
+        EV_CONTENT     = LV_CONTENT
+        EV_BYTES       = LV_BYTES
+        EV_SUBRC       = LV_RC.
+
+    IF LV_RC IS NOT INITIAL OR LV_BYTES IS INITIAL.
+      WRITE : / 'Remote file could not be retrieved.'.
+      RETURN.
+    ENDIF.
+
+    CREATE OBJECT LR_FILE.
+    CALL METHOD LR_FILE->CREATE_FROM_XSTRING
+      EXPORTING
+        IV_XSTRING  = LV_CONTENT
+        IV_PATHNAME = IV_RSRC
+        IV_BYTES    = LV_BYTES.
+
+    IF IV_DECR = ABAP_TRUE.
+      TRY.
+          CALL METHOD LR_FILE->DECRYPT
+            EXPORTING
+              IV_PSE       = IV_PSE
+              IV_RECIPIENT = IV_REC.
+        CATCH CX_CRYPTO_ERROR.
+          WRITE : / 'Error in decryption -', 'file will not be saved'.
+          RETURN.
+      ENDTRY.
+      LV_MODE = LCL_FILE=>GC_MODE_DECRYPTED.
+    ELSE.
+      LV_MODE = LCL_FILE=>GC_MODE_ORIG.
+    ENDIF.
+
+    CALL METHOD LR_FILE->SAVE
+      EXPORTING
+        IV_PATHNAME = GC_LOGICAL_FNAME_INBOUND
+        IV_MODE     = LV_MODE.
+
+  ENDMETHOD.
+
+
+  METHOD GET_FILE_LIST.
+*    IMPORTING
+*      !IV_MULTI TYPE ABAP_BOOL
+*      !IV_LSRC TYPE STRING
+*    EXPORTING
+*      !ET_FILENAME TYPE STRING_TABLE
+
+    " ----------------------------------------------------------------------------------
+    " Gets teh list of file names (without path)
+    " for the fiels that are to be processed
+    " ----------------------------------------------------------------------------------
+
+    DATA :
+      LV_MESSAGE  TYPE STRING,
+      LV_FLAG     TYPE ABAP_BOOL,
+      LV_DIRNAME  TYPE EPSDIRNAM,
+      LT_DIR_LIST TYPE TABLE OF EPSFILI,
+      LV_FILENAME TYPE STRING
+      .
+
+    FIELD-SYMBOLS:
+      <LS_DIR_LIST> TYPE EPSFILI
+     .
+
+    CLEAR ET_FILENAME.
+    IF IV_MULTI = ABAP_TRUE.
+
+      " Get the names of all usable files in the logical path
+
+      " @CUSTOMER:
+      " This function call gives us the physical path to the
+      " logical file name = requires appropriate setup in
+      " transaction FILE
+
+      CALL FUNCTION 'FILE_GET_NAME'
+        EXPORTING
+          LOGICAL_FILENAME = GC_LOGICAL_FNAME_OUTBOUND
+        IMPORTING
+          EMERGENCY_FLAG   = LV_FLAG
+          FILE_NAME        = LV_DIRNAME "physical path
+        EXCEPTIONS
+          FILE_NOT_FOUND   = 1
+          OTHERS           = 2.
+
+      IF SY-SUBRC <> 0 OR LV_FLAG IS NOT INITIAL.
+        MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+                     WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4
+                    INTO LV_MESSAGE.
+        WRITE :/ LV_MESSAGE.
+        WRITE :/ 'Logical path ', GC_LOGICAL_FNAME_OUTBOUND, 'cannot be read = outbound processing cancelled.'.
+        RETURN.
+      ENDIF.
+
+      CALL FUNCTION 'EPS_GET_DIRECTORY_LISTING'
+        EXPORTING
+          DIR_NAME               = LV_DIRNAME
+        TABLES
+          DIR_LIST               = LT_DIR_LIST " file names without path, plus size
+        EXCEPTIONS
+          INVALID_EPS_SUBDIR     = 1
+          SAPGPARAM_FAILED       = 2
+          BUILD_DIRECTORY_FAILED = 3
+          NO_AUTHORIZATION       = 4
+          READ_DIRECTORY_FAILED  = 5
+          TOO_MANY_READ_ERRORS   = 6
+          EMPTY_DIRECTORY_LIST   = 7
+          OTEHRS                 = 8.
+
+      IF SY-SUBRC <> 0.
+        MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+               WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4
+               INTO LV_MESSAGE.
+        WRITE : / LV_MESSAGE.
+        WRITE : / 'Physical path for ', GC_LOGICAL_FNAME_OUTBOUND, 'cannot be accessed - outbound processing cancelled.'.
+        RETURN.
+      ENDIF.
+
+      LOOP AT LT_DIR_LIST ASSIGNING <LS_DIR_LIST>.
+        CHECK <LS_DIR_LIST>-RC = 0 AND
+                <LS_DIR_LIST>-SIZE > 0 AND
+                <LS_DIR_LIST>-NAME(4) <> 'core'.
+        LV_FILENAME = <LS_DIR_LIST>-NAME.
+        APPEND LV_FILENAME TO ET_FILENAME.
+      ENDLOOP.
+
+    ELSE.
+
+      " only one file ( nameentered vy the user)
+      APPEND IV_LSRC TO ET_FILENAME.
+
+    ENDIF. " IF iv_multi = abap_ture
+
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+
+
+* ==========================================================================
+* The report itself
+* ==========================================================================
+
+" -----------------------------------------------------------------------------------------
+" GLOBALVARIABLES
+" Mostly needed for handling screen fields (properties and content)
+" -----------------------------------------------------------------------------------------
+DATA: GO_SAMPLE     TYPE REF TO LCL_SAMPLE ##NEEDED,
+      GV_PROGRAM    TYPE SY-REPID ##NEEDED,
+      GT_FIELDVALUE TYPE STANDARD TABLE OF RSSELREAD ##NEEDED,
+      GS_FIELDVALUE TYPE RSSELREAD ##NEEDED,
+      GV_ENCR       TYPE ABAP_BOOL ##NEEDED, " encrypt?
+      GV_DECR       TYPE ABAP_BOOL ##NEEDED, " decrypt?
+      GV_RSRC       TYPE STRING ##NEEDED, " remote surce file
+      GV_LSRC       TYPE STRING ##NEEDED, " local source file
+      GV_RFOLD      TYPE STRING ##NEEDED, " remote folder
+      GV_MULTI      TYPE ABAP_BOOL ##NEEDED. " all files from folder?
+
+
+*************************************************************************
+*** @CUSTOMER:
+*** Selections are aminly for testing purposes.
+*** Depending on your use case you may eliminate
+*** some - or even all - selection parameters
+*** For example, if you always send the same file
+*** to the same destination, you can hard-code all these parameters.
+*************************************************************************
+
+" -----------------------------------------------------------------------------------------
+" SELECTION SCREEN
+" -----------------------------------------------------------------------------------------
+" Settings for both inbound and outbound processing
+SELECTION-SCREEN: BEGIN OF BLOCK A01 WITH FRAME TITLE TEXT-A01. " General Settings
+PARAMETERS: P_DEST TYPE RFCDEST MATCHCODE OBJECT ESH_H_RFCDEST_G OBLIGATORY. " RFC destination (as in SM59)
+SELECTION-SCREEN SKIP 1.
+SELECTION-SCREEN: BEGIN OF BLOCK A02 WITH FRAME TITLE TEXT-A02. " Encryption/Decrytion
+PARAMETERS: P_PSE TYPE SSFAPPL MATCHCODE OBJECT F3STRUSTSSF. " SSF Application (PSE)
+PARAMETERS: P_REC TYPE CERTSUBJCT. " Recipient (Cert_Subject)
+SELECTION-SCREEN: END OF BLOCK A02.
+SELECTION-SCREEN: END OF BLOCK A01.
+SELECTION-SCREEN SKIP 1.
+
+" Outbound processing only
+PARAMETERS: P_OUT RADIOBUTTON GROUP M1 DEFAULT 'X'. "Outbound Processing
+SELECTION-SCREEN: BEGIN OF BLOCK B01 WITH FRAME.
+SELECTION-SCREEN BEGIN OF BLOCK B02 WITH FRAME TITLE TEXT-B02. "Selection Mode
+PARAMETERS: P_SINGLE RADIOBUTTON GROUP G1 DEFAULT 'X', " Single file
+            P_LSRC   TYPE STRING,  " Local Source File
+            P_MULTI  RADIOBUTTON GROUP G1. " All Files from Folder
+SELECTION-SCREEN: END OF BLOCK B02.
+PARAMETERS:
+  P_RFOLD TYPE STRING LOWER CASE, " Romote Target Folder
+  P_ENCR  AS CHECKBOX.  " Encrypt before sending
+SELECTION-SCREEN: END OF BLOCK B01.
+SELECTION-SCREEN SKIP 1.
+
+" inbunding processing only
+PARAMETERS: P_IN RADIOBUTTON GROUP M1. " Inbound Processing
+SELECTION-SCREEN: BEGIN OF BLOCK C02 WITH FRAME.
+PARAMETERS: P_RSRC TYPE STRING LOWER CASE,  " Remote Source File
+            P_DECR AS CHECKBOX. " Decrypt before saving
+SELECTION-SCREEN: END OF BLOCK C02.
+
+
+INITIALIZATION.
+  " -----------------------------------------------------------------------------------
+  " @CUSTOMER:
+  " You must not use this sample coding 'as is'
+  " The program cannot be executed unless you make changes
+  " to the coding you copied from the sample
+  " -----------------------------------------------------------------------------------
+* message e016(pg) with '>>> This is only sample coding <<< ' ' >>> Please adjust it to your needs <<< '.
+
+
+  " -----------------------------------------------------------------------------------
+  " SCREEN EVENTS
+  " -----------------------------------------------------------------------------------
+
+  " -----------------------------------------------------------------------------------
+  " Control the selection screen
+  " -----------------------------------------------------------------------------------
+
+AT SELECTION-SCREEN OUTPUT.
+
+  " disable irrelevant fields, depending on outbound/inbound direction
+  PERFORM TOGGLE_FIELDS.
+
+
+AT SELECTION-SCREEN ON RADIOBUTTON GROUP M1.
+
+  " When user toggles between outbound and inbound:
+  " 1) get content of fields for both directions
+  " 2) disable fields for ther direction that has not been seleted
+  " 3) perserve existing field content such that it is still abailable
+  "    if the user toggles back
+  PERFORM GET_FIELD_CONTENT.
+  PERFORM TOGGLE_FIELDS.
+  PERFORM SET_FIELD_CONTENT.
+
+
+  " -----------------------------------------------------------------------------------
+  " Check input cosistency
+  " -----------------------------------------------------------------------------------
+
+AT SELECTION-SCREEN.
+
+  IF P_OUT IS NOT INITIAL AND P_RFOLD IS INITIAL.
+    MESSAGE E016(PG) WITH 'Please specify' 'target folder for' 'outbound processing.'.
+  ENDIF.
+
+  IF P_OUT IS INITIAL AND P_RSRC IS INITIAL.
+    MESSAGE E016(PG) WITH 'Please specify' 'source file for' 'inbound processing.'.
+  ENDIF.
+
+  IF ( P_PSE IS INITIAL OR P_REC IS INITIAL ) AND
+     ( ( P_OUT IS NOT INITIAL AND P_ENCR IS  NOT INITIAL ) OR
+       ( P_OUT IS INITIAL AND P_DECR IS NOT INITIAL ) ) .
+    MESSAGE E016(PG) WITH 'Please specify' 'PSE and recipient for ' ' de-/encryption.'.
+  ENDIF.
+
+
+  " -----------------------------------------------------------------------------------
+  " Trigger send/receiver functionality
+  " -----------------------------------------------------------------------------------
+
+START-OF-SELECTION.
+
+  CREATE OBJECT GO_SAMPLE.
+
+  CALL METHOD GO_SAMPLE->MAIN
+    EXPORTING
+      IV_DEST  = P_DEST
+      IV_OUT   = P_OUT
+      IV_MULTI = P_MULTI
+      IV_LSRC  = P_LSRC
+      IV_RSRC  = P_RSRC
+      IV_RFOLD = P_RFOLD
+      IV_ENCR  = P_ENCR
+      IV_DECR  = P_DECR
+      IV_PSE   = P_PSE
+      IV_REC   = P_REC.
+
+
+*& -----------------------------------------------------------------------------------
+*& Form TOGGLE_FIELDS
+*& -----------------------------------------------------------------------------------
+* Enable or disable fields depending on selection of
+* outbound / inbound prcessing
+*--------------------------------------------------------------------------------------
+FORM TOGGLE_FIELDS.
+  LOOP AT SCREEN.
+    IF P_OUT IS NOT INITIAL.
+      IF SCREEN-NAME = 'P_RSRC' OR
+         SCREEN-NAME = 'P_DECR'.
+        SCREEN-INPUT = 0.
+      ELSE.
+        IF SCREEN-NAME = 'P_SINGLE' OR
+           SCREEN-NAME = 'P_MULTI' OR
+           SCREEN-NAME = 'P_RFOLD' OR
+           SCREEN-NAME = 'P_ENCR'.
+          SCREEN-INPUT = 1.
+        ENDIF.
+        IF SCREEN-NAME = 'P_LSRC'. " name of single file
+          IF P_SINGLE IS NOT INITIAL.
+            SCREEN-INPUT = 1.
+          ELSE.
+            SCREEN-INPUT = 0.
+          ENDIF.
+        ENDIF.
+
+      ENDIF.
+      MODIFY SCREEN.
+    ELSE.
+      IF SCREEN-NAME = 'P_RSRC' OR
+        SCREEN-NAME = 'P_DECR'.
+        SCREEN-INPUT = 1.
+      ELSEIF SCREEN-NAME = 'P_SINGLE' OR
+        SCREEN-NAME = 'P_MULTI' OR
+        SCREEN-NAME = 'P_LSRC' OR
+       SCREEN-NAME = 'P_RFOLD' OR
+       SCREEN-NAME = 'P_ENCR'.
+        SCREEN-INPUT = 0.
+      ENDIF.
+      MODIFY SCREEN.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+*& -----------------------------------------------------------------------------------
+*& Form GET_FIELD_CONTENT
+*& -----------------------------------------------------------------------------------
+* Get field content form selection screen such that
+* it can be preserved when user toggles between
+* oubound and inbound
+*--------------------------------------------------------------------------------------
+FORM GET_FIELD_CONTENT.
+
+  GV_PROGRAM = SY-REPID.
+  CLEAR GT_FIELDVALUE.
+
+  " fields for outbound processing
+  GS_FIELDVALUE-KIND = 'P'. "selection parameter
+  GS_FIELDVALUE-NAME = 'P_MULTI'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+  GS_FIELDVALUE-NAME = 'P_LSRC'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+  GS_FIELDVALUE-NAME = 'P_RFOLD'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+  GS_FIELDVALUE-NAME = 'P_ENCR'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+
+  " fields for inbound processing
+  GS_FIELDVALUE-NAME = 'P_RSRC'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+  GS_FIELDVALUE-NAME = 'P_DECR'.
+  APPEND GS_FIELDVALUE TO GT_FIELDVALUE.
+
+  CALL FUNCTION 'RS_SELECTIONSCREEN-READ'
+    EXPORTING
+      PROGRAM     = GV_PROGRAM
+    TABLES
+      FIELDVALUES = GT_FIELDVALUE.
+
+  " outbound
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_MULTI'.
+  IF SY-SUBRC = 0.
+    GV_MULTI = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_LSRC'.
+  IF SY-SUBRC = 0.
+    GV_LSRC = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_RFOLD'.
+  IF SY-SUBRC = 0.
+    GV_RFOLD = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_ENCR'.
+  IF SY-SUBRC = 0.
+    GV_ENCR = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+
+  " inbound
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_RSRC'.
+  IF SY-SUBRC = 0.
+    GV_RSRC = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+  READ TABLE GT_FIELDVALUE INTO GS_FIELDVALUE WITH KEY NAME = 'P_DECR'.
+  IF SY-SUBRC = 0.
+    GV_DECR = GS_FIELDVALUE-FIELDVALUE.
+  ENDIF.
+
+ENDFORM.
+*& -----------------------------------------------------------------------------------
+*& Form SET_FIELD_CONTENT
+*& -----------------------------------------------------------------------------------
+* Set field content to previous values (after user
+* has toogled between outbound and inbound)
+*--------------------------------------------------------------------------------------
+FORM SET_FIELD_CONTENT.
+
+  " outbound
+  P_RFOLD = GV_RFOLD.
+  P_MULTI = GV_MULTI.
+  P_LSRC = GV_LSRC.
+  P_ENCR = GV_ENCR.
+
+  " inbound
+  P_RSRC = GV_RSRC.
+  P_DECR = GV_DECR.
+ENDFORM.
