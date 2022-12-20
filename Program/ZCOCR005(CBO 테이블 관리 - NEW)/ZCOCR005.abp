@@ -33,6 +33,9 @@ INITIALIZATION.
 *----------------------------------------------------------------------*
 * AT SELECTION-SCREEN
 *----------------------------------------------------------------------*
+AT SELECTION-SCREEN.
+  PERFORM AT_SELECTION_SCREEN.
+  
 AT SELECTION-SCREEN OUTPUT.
   PERFORM AT_SELECTION_SCREEN_OUTPUT.
   
@@ -73,6 +76,7 @@ START-OF-SELECTION.
 * E03 RFC Destination is not vaild
 * E04 RFC Destination is not on R/3 System
 * E05 Only CBO Table Data can be transfered
+* E06 Selection conditions are applicable only 1 table.
 * H01 Table Name
 * H02 Data Count
 * H03 Position
@@ -102,12 +106,13 @@ START-OF-SELECTION.
 
 *Selection texts
 *---------------------------------------------------------
-* P_RFCDES       Source RFC Destination "Source RFC 목적지
+* P_CNT          Processing Count       "분할처리건수
 * P_COPY         Copy From RFC Destination "타 클라이언트로부터 복사
 * P_DISP         DISPLAY MODE "조회
 * P_EDIT         EDIT MODE "변경
-* S_TABNAM D       . "테이블이름
-* S_TABNM D        . "테이블이름
+* P_RFCDES       Source RFC Destination "Source RFC 목적지
+* S_TABNAM	D       . "테이블이름
+* S_TABNM	D       . "테이블이름
 * S_ZMODUL       MODULE "모듈
 
 *Messages

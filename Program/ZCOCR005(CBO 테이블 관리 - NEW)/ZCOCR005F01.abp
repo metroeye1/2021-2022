@@ -28,39 +28,30 @@ FORM F4_TABNAM  USING    P_FNAME
                                   ( | AND B~AS4LOCAL = 'A' | )
                                   ( SWITCH #( P_CBO_ONLY WHEN ABAP_ON THEN | AND ( A~TABNAME LIKE 'Y%' OR A~TABNAME LIKE 'Z%' ) | ) ) ).
 
-  SELECT A~TABNAME, 
-         B~DDTEXT
-    FROM ZCOCT006 AS A 
-   INNER JOIN DD02T AS B ON A~TABNAME = B~TABNAME
-   WHERE (LT_WHERE)
-   ORDER BY A~TABNAME
-    INTO TABLE @DATA(LT_VALUE).
+  IF P_COPY = ABAP_ON.
 
-  PERFORM F4_VALUES TABLES LT_VALUE
-                     USING 'TABNAME'
-                           P_FNAME.
+    SELECT A~TABNAME, 
+           B~DDTEXT
+      FROM DD02T AS B 
+     WHERE (LT_WHERE)
+     ORDER BY B~TABNAME
+      INTO TABLE @DATA(LT_VALUE).
 
-ENDFORM.
-*&---------------------------------------------------------------------*
-*&      Form  F4_VALUES
-*&---------------------------------------------------------------------*
-FORM F4_VALUES  TABLES   PT_VALUE
-                USING    P_RETFIELD
-                         P_FNAME.
+  ELSE.
 
-  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
-    EXPORTING
-      RETFIELD        = P_RETFIELD
-      DYNPPROG        = SY-REPID
-      DYNPNR          = SY-DYNNR
-      DYNPROFIELD     = P_FNAME
-      VALUE_ORG       = 'S'
-    TABLES
-      VALUE_TAB       = PT_VALUE[]
-    EXCEPTIONS
-      PARAMETER_ERROR = 1
-      NO_VALUES_FOUND = 2
-      OTHERS          = 3.
+    SELECT A~TABNAME, 
+           B~DDTEXT
+      FROM ZCOCT006 AS A 
+     INNER JOIN DD02T AS B ON A~TABNAME = B~TABNAME
+     WHERE (LT_WHERE)
+     ORDER BY A~TABNAME
+      INTO TABLE @LT_VALUE.
+    
+  ENDIF.
+
+  ZCL_COC_ONF4=>CALL_F4( I_RETFIELD = 'TABNAME'
+                         I_DYNFIELD = P_FNAME
+			 IT_DATA    = LT_VALUE ).
 
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -203,11 +194,15 @@ FORM CREATE_DYNAMIC_TABLE  USING    P_TABNAME.
 *----------------------------------------------------------------------
   CLEAR: GR_ZALV2->MT_CELLTAB, LO_COMP_TAB.
 
+  "FIELD NAMES
+  DATA(LT_DD03P) = ZCL_COC_COMM=>GET_DD_INFO( P_TABNAME ).
+
   LOOP AT GR_ZALV2->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
 
     "LABEL / FIELD NAME
     <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-COLTEXT = <FS_FDCAT>-SELTEXT = 
-    SWITCH #( GV_LABEL WHEN ABAP_ON THEN <FS_FDCAT>-REPTEXT ELSE <FS_FDCAT>-FIELDNAME ).
+*    SWITCH #( GV_LABEL WHEN ABAP_ON THEN <FS_FDCAT>-REPTEXT ELSE <FS_FDCAT>-FIELDNAME ).
+    SWITCH #( GV_LABEL WHEN ABAP_ON THEN LT_DD03P[ FIELDNAME = <FS_FDCAT>-FIELDNAME ]-DDTEXT ELSE <FS_FDCAT>-FIELDNAME ).
 
     "SET STYLE FOR KEY FIELD
     IF <FS_FDCAT>-KEY IS NOT INITIAL.
@@ -216,6 +211,16 @@ FORM CREATE_DYNAMIC_TABLE  USING    P_TABNAME.
                                         STYLE     = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED + ALV_STYLE_FONT_BOLD ) ).
     ENDIF.
 
+    IF <FS_FDCAT>-FIELDNAME = 'ERDAT' OR
+       <FS_FDCAT>-FIELDNAME = 'ERZET' OR
+       <FS_FDCAT>-FIELDNAME = 'ERNAM' OR
+       <FS_FDCAT>-FIELDNAME = 'AEDAT' OR
+       <FS_FDCAT>-FIELDNAME = 'AEZET' OR
+       <FS_FDCAT>-FIELDNAME = 'AENAM'.
+      <FS_FDCAT>-EDIT    =  ABAP_OFF.
+      <FS_FDCAT>-NO_OUT  =  ABAP_ON.
+    ENDIF.
+       
     "APPEND COMPONENTS
     LO_COMP-NAME = <FS_FDCAT>-FIELDNAME.
 
@@ -782,6 +787,7 @@ FORM CHECK_VALID  USING    PC_GRID TYPE REF TO ZCL_COC_GUI_ALV_GRID
 
   IF PC_GRID IS NOT INITIAL.
     PC_GRID->CHECK_CHANGED_DATA( IMPORTING E_VALID = DATA(L_VALID) ).
+    IF L_VALID IS INITIAL. LEAVE SCREEN. ENDIF.
   ENDIF.
 
   IF L_VALID IS INITIAL.
@@ -1000,25 +1006,28 @@ ENDFORM.                    " AT_SELECTION_SCREEN_OUTPUT
 FORM MODIFY_SCREEN_1000 .
 
   "Screen control
-	LOOP AT SCREEN.
-		
-		CASE SCREEN-GROUP1.
-		
-		 WHEN 'GR1'.
-		   IF P_COPY EQ ABAP_ON.
-		     SCREEN-ACTIVE = 0.
-		   ENDIF.
-		 
-		 WHEN 'GR2'.
-		   IF P_COPY NE ABAP_ON.
-		     SCREEN-ACTIVE = 0.
-		   ENDIF.
-		 
-	  ENDCASE.
-	
-	  MODIFY SCREEN.
-	
+  LOOP AT SCREEN.
+  	
+    CASE SCREEN-GROUP1.
+    
+     WHEN 'GR1'.
+       IF P_COPY EQ ABAP_ON.
+         SCREEN-ACTIVE = 0.
+       ENDIF.
+     
+     WHEN 'GR2'.
+       IF P_COPY NE ABAP_ON.
+         SCREEN-ACTIVE = 0.
+       ENDIF.
+     
+    ENDCASE.
+  
+    MODIFY SCREEN.
+  
   ENDLOOP.
+
+  "아이콘 지정
+  BUT1 = ICON_FENCING && '조건'.
 
 ENDFORM.                    " MODIFY_SCREEN_0100
 *&---------------------------------------------------------------------*
@@ -1027,11 +1036,11 @@ ENDFORM.                    " MODIFY_SCREEN_0100
 FORM START_OF_SELECTION .
 
   IF P_COPY = ABAP_ON.
-  	PERFORM COPY_TABLE.
+    PERFORM COPY_TABLE.
   ELSE.
-  	PERFORM GET_DATA.
-  	PERFORM GEN_ALV.
-  	CALL SCREEN 0100.
+    PERFORM GET_DATA.
+    PERFORM GEN_ALV.
+    CALL SCREEN 0100.
   ENDIF.
 
 ENDFORM.                    " START_OF_SELECTION
@@ -1040,14 +1049,15 @@ ENDFORM.                    " START_OF_SELECTION
 *&---------------------------------------------------------------------*
 FORM COPY_TABLE .
 
-  DATA: LO_DATA TYPE REF TO DATA.
+  DATA: LO_DATA  TYPE REF TO DATA,
+        LV_COUNT TYPE INT8.
   	
   FIELD-SYMBOLS: <LT_ITAB> TYPE TABLE.
   
   "테이블 입력 확인
   IF S_TABNM IS INITIAL.
-  	MESSAGE S000 WITH TEXT-E01 DISPLAY LIKE 'E'.
-  	LEAVE LIST-PROCESSING.
+    MESSAGE S000 WITH TEXT-E01 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
   ENDIF.
   
   "RFC 목적지 입력 확인
@@ -1101,34 +1111,67 @@ FORM COPY_TABLE .
      AND ( TABNAME LIKE 'Y%' OR TABNAME LIKE 'Z%' )
     INTO TABLE @DATA(LT_TABNM).
     
+  "복사 가능 테이블 확인
   IF LT_TABNM IS INITIAL.
   	MESSAGE S000 WITH TEXT-E05 DISPLAY LIKE 'E'.
   	LEAVE LIST-PROCESSING.
   ENDIF.
   	
-  LOOP AT LT_TABNM ASSIGNING FIELD-SYMBOL(<FS_TABNM>).
-  	
-  	"데이터 가져오기
-  	CREATE DATA LO_DATA TYPE TABLE OF (<FS_TABNM>-TABNAME).
-  	ASSIGN LO_DATA->* TO <LT_ITAB>.
-  	
-  	CALL FUNCTION 'ZCOCCM_GET_TABLE_DATA'
-  	  EXPORTING
-  	    I_TABNAME = <FS_TABNM>-TABNAME
-  	    I_RFCDEST = LS_RFCDES-RFCDEST
-  	  IMPORTING
-  	    ET_DATA   = <LT_ITAB>.
-  	    
-    "데이터 삭제 후 저장
-    DELETE FROM (<FS_TABNM>-TABNAME).
-    INSERT (<FS_TABNM>-TABNAME) FROM TABLE <LT_ITAB>.
+  "조건은 하나의 테이블에 대해서만 지정 가능합니다.
+  IF LINES( LT_TABNM ) > 1 AND
+     GT_QUERY IS NOT INITIAL.
+    MESSAGE S000 WITH TEXT-E06 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  TRY.
+
+    LOOP AT LT_TABNM ASSIGNING FIELD-SYMBOL(<FS_TABNM>).
+    	
+    	"데이터 가져오기
+    	CREATE DATA LO_DATA TYPE TABLE OF (<FS_TABNM>-TABNAME).
+    	ASSIGN LO_DATA->* TO <LT_ITAB>.
+    	
+	"데이터 삭제 후 저장
+	DELETE
+	  FROM (<FS_TABNM>-TABNAME)
+	 WHERE (GT_QUERY).
+
+        "반복 처리
+	DO.
+
+    	  CALL FUNCTION 'ZCOCCM_GET_TABLE_DATA'
+    	    EXPORTING
+    	      I_TABNAME = <FS_TABNM>-TABNAME
+    	      I_RFCDEST = LS_RFCDES-RFCDEST
+	      I_COUNT   = P_CNT
+	      I_DOCNT   = SY-INDEX
+    	    IMPORTING
+    	      ET_DATA   = <LT_ITAB>
+	    TABLES
+	      IT_QUERY  = GT_QUETY.
+    	      
+          INSERT (<FS_TABNM>-TABNAME) FROM TABLE <LT_ITAB>.
+      
+          IF <LT_ITAB> IS INITIAL OR
+	     LINES( <LT_ITAB> ) < P_CNT OR
+	     P_CNT = 0.
+	    EXIT.
+	  ENDIF.
+
+      ENDDO.
+
+    ENDLOOP.
     
-  ENDLOOP.
+    COMMIT WORK.
+    MESSAGE S007.  
   
-  COMMIT WORK.
-  
-  MESSAGE S007.  
-  
+    CATCH CX_ROOT INTO DATA(LO_ROOT).
+      MESSAGE S000 WITH LO_ROOT->GET_TEXT( ) DISPLAY LIKE 'E'.
+      ROLLBACK WORK.
+      EXIT.
+  ENDTRY.
+
 ENDFORM.                    " COPY_TABLE
 *&---------------------------------------------------------------------*
 *& Form CREATE_ALV
@@ -1512,5 +1555,45 @@ FORM UCOMM_IMPORT.
 
   PERFORM CONVERT_UPLOAD_DATA.
   PERFORM DISPLAY_ALV USING 2.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form AT_SELECTION_SCREEN
+*&---------------------------------------------------------------------*
+FORM AT_SELECTION_SCREEN.
+
+  CASE SSCRFIELDS-UCOMM.
+    WHEN 'FC2'.
+
+      PERFORM UCOMM_FC2.
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_FC2
+*&---------------------------------------------------------------------*
+FORM UCOMM_FC2.
+
+  "테이블 하나일 경우만 조건 지정을 허용한다.
+  SELECT TABNAME AS TABNAME
+    FROM DD02L
+   WHERE TABNAME IN @S_TABNM
+*     AND (TABNAME LIKE 'Y%' OR TABNAME LIKE 'Z%' )
+    INTO TABLE @DATA(LT_TABNM).
+
+  IF LINES( LT_TABNM ) NE 1.
+    MESSAGE S000 WITH TEXT-E06 DISPLAY LIKE 'E'.
+    EXIT.
+  ENDIF.
+
+  "한 개의 테이블에 대한 다이나믹 선택 지정
+  CLEAR GV_SUBRC.
+  DATA(LV)TABNM) = LT_TABNM[ 1 ]-TABNAME.
+
+  PERFORM CREATE_DYNAMIC_TABLE USING LV_TABNAME.
+  PERFORM SET_FIELD_KEY_FIELDS CHANGING GV_SUBRC.
+
+  CHECK GV_SUBRC = 0.
 
 ENDFORM.
