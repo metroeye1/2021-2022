@@ -1,0 +1,103 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR001T01
+*&---------------------------------------------------------------------*
+INCLUDE <CL_ALV_CONTROL>.
+
+DATA: GR_ZAVL1         TYPE REF TO ZCL_COC_ALV,
+      GR_ZAVL2         TYPE REF TO ZCL_COC_ALV,
+      GR_ZAVL3         TYPE REF TO ZCL_COC_ALV,
+      GR_EVENT_HANDLER TYPE REF TO ZCL_COC_EVENT_HANDLER.
+
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: sscrfields, RFCDES, ztco2000, ztco2001, ztco2002.
+
+*----------------------------------------------------------------------*
+* TYPE-POOLS
+*----------------------------------------------------------------------*
+TYPE-POOLS: sscr.
+
+TYPES: BEGIN OF TY_LAV1.
+         INCLUDE STRUCTURE ZTCO2000,
+TYPES:   CELLTAB TYPE LVC_T_STYL,
+         COLINFO TYPE LVC_T_SCOL,
+         SAVED   TYPE CHAR01,
+         CHANGED TYPE CHAR01,
+       END OF TY_ALV1.
+      
+TYPES: BEGIN OF TY_LAV2.
+         INCLUDE STRUCTURE ZTCO2001,
+TYPES:   DATATYPE LIKE DD03L-DATATYPE,
+         LENG     LIKE DD03L-LENG,
+         DECIMALS LIKE DD03L-DECIMALS,
+         CELLTAB TYPE LVC_T_STYL,
+         COLINFO TYPE LVC_T_SCOL,
+         CHANGED TYPE CHAR01,
+       END OF TY_ALV2.
+   
+TYPES: BEGIN OF TY_LAV3.
+         INCLUDE STRUCTURE ZTCO2002,
+TYPES:   CELLTAB TYPE LVC_T_STYL,
+         COLINFO TYPE LVC_T_SCOL,
+         SAVED   TYPE CHAR01,
+         CHANGED TYPE CHAR01,
+       END OF TY_ALV3.
+
+*----------------------------------------------------------------------*
+* CONSTANTS (c_)
+*----------------------------------------------------------------------*
+CONSTANTS:
+  c_x                        TYPE c                  VALUE 'X',
+  c_disp                     TYPE string             VALUE 'DISP',
+  c_chng                     TYPE string             VALUE 'CHNG',
+  c_data_cnt                 TYPE i                  VALUE 10.
+
+*----------------------------------------------------------------------*
+* DATA: FIELD (gv_, g_)
+*----------------------------------------------------------------------*
+DATA: gv_zmodule             LIKE ztco2000-zmodule,
+      gv_class               LIKE ztco2000-class,
+      gv_mode1               TYPE char10,
+      gv_mode2               TYPE char10,
+      gv_mode3               TYPE char10,
+      gv_TITLE               TYPE string,
+      GV_LABEL               TYPE C.
+
+*----------------------------------------------------------------------*
+* DATA: INTERNAL TABLE / STRUCTURE (gs_, gt_)
+*----------------------------------------------------------------------*
+DATA: GT_ALV1                TYPE TABLE OF TY_ALV1,
+      GT_ALV2                TYPE TABLE OF TY_ALV3,
+      GT_ALV3                TYPE TABLE OF TY_ALV4,
+      gt_2000                LIKE TABLE OF ztco2000,
+      gt_2001                LIKE TABLE OF ztco2001,
+      gt_2002                LIKE TABLE OF ztco2002.
+
+*----------------------------------------------------------------------*
+* FIELD-SYMBOLS (<g_>)
+*----------------------------------------------------------------------*
+FIELD-SYMBOLS: <FS_alv>      TYPE REF TO ZCL_COC_ALV,
+               <FS_TAB>      TYPE STANDARD TABLE.
+
+RANGES: GR_COL_CLASS FOR ztco2000-CLASS.
+
+************************************************************************
+*                       SELECTION-SCREEN                               *
+************************************************************************
+SELECTION-SCREEN BEGIN OF BLOCK blk01 WITH FRAME TITLE text-001.
+
+SELECTION-SCREEN BEGIN OF LINE.
+  SELECTION-SCREEN COMMENT (31) TEXT-201.
+  PARAMETERS: P_INP RADIOBUTTON GROUP RD1 DEFAULT 'X' USER-COMMAND FC1.
+  SELECTION-SCREEN COMMENT (16) TEXT-202 FOR FIELD P_INP.
+  PARAMETERS: P_RFC RADIOBUTTON GROUP RD1.
+  SELECTION-SCREEN COMMENT (20) TEXT-203 FOR FIELD P_RFC. 
+SELECTION-SCREEN END OF LINE.
+
+  SELECT-OPTIONS : s_zmodu FOR ztco2000-zmodule MODIF ID INP DEFAULT 'CO'.
+  SELECT-OPTIONS : s_class FOR ztco2000-class MODIF ID INP.
+
+  PARAMETERS: P_RFCDES LIKE RFCDES-RFCDEST MODIF ID RFC.
+  	
+SELECTION-SCREEN END OF BLOCK blk01.

@@ -1,0 +1,26 @@
+FUNCTION ZCOCCM_GET_TABLE_DATA.
+*"----------------------------------------------------------------------
+*"*"Local interface:
+*"  IMPORTING
+*"    VALUE(I_TABNAME) TYPE TABNAME
+*"  EXPORTING 
+*"    VALUE(E_XMLSTRING) TYPE XSTRING
+*"----------------------------------------------------------------------
+  
+  CLEAR: E_XMLSTRING.
+  
+  DATA: LO_DATA TYPE REF TO DATA.
+  	
+  FIELD-SYMBOLS: <LT_ITAB> TYPE TABLE.
+  
+  "Dynamically create itab
+  CREATE DATA LO_DATA TYPE TABLE OF (I_TABNAME).
+  ASSIGN LO_DATA->* TO <LT_ITAB>.
+  
+  SELECT * FROM (I_TABNAME) INTO TABLE <LT_ITAB>.
+      
+  CALL TRANSFORMATION ID
+    SOURCE ITAB = <LT_ITAB>
+    RESULT XML E_XMLSTRING.
+    
+ENDFUNCTION.

@@ -1,0 +1,659 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR006F01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  INITIALIZATION
+*&---------------------------------------------------------------------*
+FORM INITIALIZATION .
+
+  "I/F  조회 기간 제한
+*  S_IFDAT[] = VALUE #( ( SIGN = 'I' OPTION = 'BT' LOW = SY-DATUM - 2  HIGH = SY-DATUM ) ).
+
+	"I/F 정보 저장 확인
+	SELECT COUNT( * )
+	  FROM ZCOCT005
+	  INTO @DATA(LV_CNT).
+	  
+	IF SY-SUBRC <> 0.
+	  MESSAGE E000 WITH TEXT-008.
+	ENDIF.
+	
+  "SET TITLE
+  GV_TITLE = ZCL_COC_UTIL=>GET_TITLE( SY-CPROG ).
+
+  GR_TREE  = NEW #( ).
+  GR_ZALV1 = NEW #( ).
+  GR_ZALV2 = NEW #( ).
+
+ENDFORM.                    " INITIALIZATION
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_TREE_OBJECT
+*&---------------------------------------------------------------------*
+FORM CREATE_TREE_OBJECT .
+
+  CHECK GR_TREE->MO_DOCKING IS INITIAL.
+
+  "TREE 구성을 위한 TREE 영역 생성.
+  GR_TREE->MO_DOCKING = NEW #( REPID     = CONV #( SY-REPID )
+                               DYNNR     = CONV #( SY-DYNNR )
+                               SIDE      = CL_GUI_DOCKING_CONTAINER=>DOCK_AT_LEFT
+                               EXTENSION = 330 ).
+
+  "TREE HEADER
+  GR_TREE->MO_HEADER1 = NEW #( PARENT_CONTAINER = GR_TREE->MO_DOCKING
+                               COMPONENT        = VALUE #( ( RATIO = '100' DESCRIPT = '인터페이스 목록' ) ) ).
+  GR_TREE->MO_HEADER1->GET_CONTAINER( IMPORTING CONTAINER1 = GR_TREE->MO_LEFT ).
+
+  "TREE 구성 생성
+  GR_TREE->MO_LIST_TREE = NEW #( PARENT                      = GR_TREE->MO_LEFT
+                                 NODE_SELECTION_MODE         = CL_GUI_LIST_TREE=>NODE_SEL_MODE_SINGLE
+                                 ITEM_SELECTION              = ABAP_ON
+                                 WITH_HEADERS                = ABAP_OFF "ABAP_ON
+                                 " HIERARCHY_HEADER            = VALUE #( HEADING = |{ TEXT-003 } { TEXT-004 }| TOOLTIP = TEXT-003 WIDTH = 100 )
+                       ).
+
+* 트리 안의 내용을 구성처리 한다.
+  PERFORM INIT_DOCUMENT_TREE.
+
+ENDFORM.                    " CREATE_TREE_OBJECT
+*&---------------------------------------------------------------------*
+*&      Form  INIT_DOCUMENT_TREE
+*&---------------------------------------------------------------------*
+FORM INIT_DOCUMENT_TREE.
+
+* 트리의 상위 필드및 기타 설정을 처리한다.
+
+* Inbound Tree Folder / Outbound Tree Folder
+  GT_TREE_NODE = VALUE #( ( NODE_KEY = C_IN  N_IMAGE = ICON_WD_INBOUND_PLUG  EXP_IMAGE = ICON_WD_INBOUND_PLUG  ISFOLDER = ABAP_ON )
+                          ( NODE_KEY = C_OUT N_IMAGE = ICON_WD_OUTBOUND_PLUG EXP_IMAGE = ICON_WD_OUTBOUND_PLUG ISFOLDER = ABAP_ON ) ).
+
+* Inbound Items / Outbound Items
+  GT_TREE_ITEM = VALUE #( ( NODE_KEY     = C_IN
+                            ITEM_NAME    = '1'
+                            CLASS        = CL_GUI_LIST_TREE=>ITEM_CLASS_TEXT
+                            ALIGNMENT    = CL_GUI_LIST_TREE=>ALIGN_AUTO
+                            STYLE        = CL_GUI_LIST_TREE=>STYLE_EMPHASIZED_B
+                            TEXT         = TEXT-021 )
+
+                          ( NODE_KEY     = C_OUT
+                            ITEM_NAME    = '1'
+                            CLASS        = CL_GUI_LIST_TREE=>ITEM_CLASS_TEXT
+                            ALIGNMENT    = CL_GUI_LIST_TREE=>ALIGN_AUTO
+                            STYLE        = CL_GUI_LIST_TREE=>STYLE_EMPHASIZED_C
+                            TEXT         = TEXT-022 ) ).
+
+* Generate the leaves
+  PERFORM INIT_TREE_LEAVES.
+
+  GR_TREE->MO_LIST_TREE->ADD_NODES_AND_ITEMS( NODE_TABLE                     = GT_TREE_NODE
+                                              ITEM_TABLE                     = GT_TREE_ITEM
+                                              ITEM_TABLE_STRUCTURE_NAME      = 'MTREEITM' "'FMBW_S_DOCTREE'
+                                            ).
+
+  "INBOUND, OUTBOUND 모두 열기
+  GR_TREE->MO_LIST_TREE->EXPAND_NODES( NODE_KEY_TABLE = VALUE #( ( C_IN ) ( C_OUT ) ) ).
+
+  "첫 항목 선택
+  GR_TREE->MO_LIST_TREE->SET_SELECTED_NODE( NODE_KEY = CONV #( ZCOC_INIT_NODE ) ).
+
+ENDFORM.                    " INIT_DOCUMENT_TREE
+*&---------------------------------------------------------------------*
+*&      Form  INIT_TREE_LEAVES
+*&---------------------------------------------------------------------*
+FORM INIT_TREE_LEAVES.
+
+  SELECT *
+    FROM ZCOCT005
+   WHERE PRCSS NE ''
+   ORDER BY DIRCT DESCENDING, SEQ, PRCSS
+   INTO CORRESPONDING FIELDS OF TABLE @GT_CATALOG.
+
+  LOOP AT GT_CATALOG ASSIGNING FIELD-SYMBOL(<FS_CAT>).
+
+    <FS_CAT>-DOCKEY   = SY-TABIX.
+    <FS_CAT>-RELATKEY = SWITCH #( <FS_CAT>-DIRCT WHEN '1' THEN C_OUT WHEN '2' THEN C_IN ).
+
+    GT_TREE_NODE = VALUE #( BASE GT_TREE_NODE
+                            ( N_IMAGE   = SWITCH #( <FS_CAT>-DIRCT WHEN '1' THEN ICON_TRANSPORT WHEN '2' THEN ICON_WS_TRUCK )
+                              EXP_IMAGE = SWITCH #( <FS_CAT>-DIRCT WHEN '1' THEN ICON_TRANSPORT WHEN '2' THEN ICON_WS_TRUCK )
+                              NODE_KEY  = <FS_CAT>-DOCKEY
+                              RELATKEY  = <FS_CAT>-RELATKEY
+                              RELATSHIP = CL_GUI_LIST_TREE=>RELAT_LAST_CHILD
+                              ISFOLDER  = ' '
+                          ) ).
+
+    GT_TREE_ITEM = VALUE #( BASE GT_TREE_ITEM
+                            ( NODE_KEY   = <FS_CAT>-DOCKEY
+                              ITEM_NAME  = '1'
+                              CLASS      = CL_GUI_LIST_TREE=>ITEM_CLASS_TEXT
+                              USEBGCOLOR = ABAP_OFF
+                              LENGTH     = 43
+                              FONT       = CL_GUI_LIST_TREE=>ITEM_FONT_PROP
+                              TEXT       = |{ <FS_CAT>-PRCSS } { <FS_CAT>-PNAME }| ) ).
+
+  ENDLOOP.
+
+* Initial node
+  PERFORM SET_NODE_LINE USING ZCOC_INIT_NODE.
+
+ENDFORM.                    " INIT_TREE_LEAVES
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_ALV_LIST_H
+*&---------------------------------------------------------------------*
+FORM CREATE_ALV_LIST_DISPLAY .
+
+  CHECK GR_ZALV1->MO_CUS_CON IS INITIAL.
+
+  PERFORM ALV_GRID_SPLIT_LINE.
+
+  PERFORM LVC_FIELD_CATLOG.
+  PERFORM LVC_EVENT_RECIVER.
+  PERFORM LVC_LAYOUT_CREATE.
+
+  PERFORM LVC_FIRS_DISPLAY_HEADER.
+  PERFORM LVC_FIRS_DISPLAY_ITEM.
+
+ENDFORM.                    " CREATE_ALV_LIST_H
+*&---------------------------------------------------------------------*
+*&      Form  ALV_GRID_SPLIT_LINE
+*&---------------------------------------------------------------------*
+FORM ALV_GRID_SPLIT_LINE .
+
+  GR_ZALV1->MO_CUS_CON = NEW #( CONTAINER_NAME = 'C_CUSTOM' ).
+  GR_ZALV1->MO_SPLIT = NEW #( PARENT = GR_ZALV1->MO_CUS_CON ROWS = 2 COLUMNS = 1 ).
+
+  "HEADER CONTAINER
+  GR_ZALV1->MO_HEADER1 = NEW #( PARENT_CONTAINER = GR_ZALV1->MO_SPLIT->GET_CONTAINER( ROW = 1 COLUMN = 1 )
+                                COMPONENT        = VALUE #( ( RATIO = '100' DESCRIPT = TEXT-H01 ) ) ).
+
+  GR_ZALV1->MO_HEADER1->GET_CONTAINER( IMPORTING CONTAINER1 = GR_ZALV1->MO_HEAD ).
+  GR_ZALV1->MO_GRID = NEW #( I_PARENT = GR_ZALV1->MO_HEAD ).
+
+  "ALV GRID CONTAINER
+  GR_ZALV1->MO_HEADER2 = NEW #( PARENT_CONTAINER = GR_ZALV1->MO_SPLIT->GET_CONTAINER( ROW = 2 COLUMN = 1 )
+                                COMPONENT        = VALUE #( ( RATIO = '100' DESCRIPT = TEXT-H02 ) ) ).
+
+  GR_ZALV1->MO_HEADER2->GET_CONTAINER( IMPORTING CONTAINER1 = GR_ZALV1->MO_BODY ).
+  GR_ZALV2->MO_GRID = NEW #( I_PARENT = GR_ZALV1->MO_BODY ).
+
+ENDFORM.                    " ALV_GRID_SPLIT_LINE
+*&---------------------------------------------------------------------*
+*&      Form  LVC_FIELD_CATLOG
+*&---------------------------------------------------------------------*
+FORM LVC_FIELD_CATLOG.
+
+  GR_ZALV1->MAKE_FIELDCATALOG( IV_MODE = 'S' IV_TABNAME = CONV #( GS_SEL-HEADER_TABLE ) ).
+  GR_ZALV2->MAKE_FIELDCATALOG( IV_MODE = 'S' IV_TABNAME = CONV #( GS_SEL-ITEM_TABLE ) ).
+
+ENDFORM.                    " LVC_FIELD_CATLOG
+*&---------------------------------------------------------------------*
+*&      Form  LVC_EVENT_RECIVER
+*&---------------------------------------------------------------------*
+FORM LVC_EVENT_RECIVER .
+
+  IF GR_EVENT_HANDLER IS INITIAL.
+    CREATE OBJECT GR_EVENT_HANDLER.
+  ENDIF.
+
+  GR_TREE->MO_LIST_TREE->SET_REGISTERED_EVENTS( EVENTS = VALUE #( ( APPL_EVENT = 'X' EVENTID = CL_GUI_LIST_TREE=>EVENTID_ITEM_DOUBLE_CLICK )
+                                                                  ( APPL_EVENT = 'X' EVENTID = CL_GUI_LIST_TREE=>EVENTID_NODE_DOUBLE_CLICK ) ) ).
+                                                                  
+  SET HANDLER GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK           FOR GR_ZALV1->MO_GRID.
+  SET HANDLER GR_EVENT_HANDLER->HANDLE_LIST_ITEM_DOUBLE_CLICK
+              GR_EVENT_HANDLER->HANDLE_LIST_NODE_DOUBLE_CLICK FOR GR_TREE->MO_LIST_TREE.
+
+ENDFORM.                    " LVC_EVENT_RECIVER
+*&---------------------------------------------------------------------*
+*&      Form  LVC_FIRS_DISPLAY_HEADER
+*&---------------------------------------------------------------------*
+FORM LVC_FIRS_DISPLAY_HEADER .
+
+
+  CALL METHOD GR_ZALV1->MO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+    EXPORTING
+      IS_VARIANT                    = GR_ZALV1->MS_VARIANT
+      I_BYPASSING_BUFFER            = 'X'
+      I_SAVE                        = 'A'
+      I_DEFAULT                     = 'X'
+      IS_LAYOUT                     = GR_ZALV1->MS_LAYOUT
+      IT_TOOLBAR_EXCLUDING          = GR_ZALV1->MT_UI_FUNCTIONS
+    CHANGING
+      IT_OUTTAB                     = <FS_HEADER>
+      IT_FIELDCATALOG               = GR_ZALV1->MT_FDCAT_LVC
+    EXCEPTIONS
+      INVALID_PARAMETER_COMBINATION = 1
+      PROGRAM_ERROR                 = 2
+      OTHERS                        = 3.
+
+
+ENDFORM.                    " LVC_FIRS_DISPLAY_HEADER
+*&---------------------------------------------------------------------*
+*&      Form  LVC_FIRS_DISPLAY_ITEM
+*&---------------------------------------------------------------------*
+FORM LVC_FIRS_DISPLAY_ITEM .
+
+  CHECK GS_SEL-ITEM_TABLE IS NOT INITIAL.
+
+  CALL METHOD GR_ZALV2->MO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+    EXPORTING
+      IS_VARIANT                    = GR_ZALV2->MS_VARIANT
+      I_BYPASSING_BUFFER            = 'X'
+      I_SAVE                        = 'A'
+      I_DEFAULT                     = 'X'
+      IS_LAYOUT                     = GR_ZALV2->MS_LAYOUT
+      IT_TOOLBAR_EXCLUDING          = GR_ZALV2->MT_UI_FUNCTIONS
+    CHANGING
+      IT_OUTTAB                     = <FS_ITEM>
+      IT_FIELDCATALOG               = GR_ZALV2->MT_FDCAT_LVC
+    EXCEPTIONS
+      INVALID_PARAMETER_COMBINATION = 1
+      PROGRAM_ERROR                 = 2
+      OTHERS                        = 3.
+
+
+ENDFORM.                    " LVC_FIRS_DISPLAY_ITEM
+*&---------------------------------------------------------------------*
+*&      Form  SELECTION_LOG_DATA
+*&---------------------------------------------------------------------*
+FORM SELECTION_LOG_DATA .
+
+  PERFORM GET_HEADER_DATA.
+  PERFORM GET_ITEM_DATA USING 1.
+
+ENDFORM.                    " SELECTION_LOG_DATA
+*&---------------------------------------------------------------------*
+*&      Form  DYNAMIC_TABLE_CREATE
+*&---------------------------------------------------------------------*
+FORM DYNAMIC_TABLE_CREATE .
+
+  DATA: LO_STRUCT_TYPE TYPE REF TO  CL_ABAP_STRUCTDESCR,
+        LO_TABLE_TYPE  TYPE REF TO  CL_ABAP_TABLEDESCR,
+        LO_COMP_TAB    TYPE         CL_ABAP_STRUCTDESCR=>COMPONENT_TABLE,
+        LO_COMP        LIKE LINE OF LO_COMP_TAB,
+        LO_MY_TABLE    TYPE REF TO  DATA,
+        LO_MY_ROW      TYPE REF TO  DATA.
+
+  DATA :LR_VALUE_DESCR  TYPE REF TO CL_ABAP_ELEMDESCR .
+
+  LO_STRUCT_TYPE ?= CL_ABAP_TYPEDESCR=>DESCRIBE_BY_NAME( GS_SEL-HEADER_TABLE ).
+  LO_COMP_TAB  = LO_STRUCT_TYPE->GET_COMPONENTS( ).
+
+* Field Add
+  LR_VALUE_DESCR ?= CL_ABAP_ELEMDESCR=>GET_C( P_LENGTH = '1' ).
+  LO_COMP-NAME = 'LED'.
+  LO_COMP-TYPE = LR_VALUE_DESCR.
+  INSERT LO_COMP INTO TABLE LO_COMP_TAB.
+
+
+*APPEND LINES OF lt_comp TO lt_tot_comp.
+
+* Dynamic table 구성..
+  LO_STRUCT_TYPE = CL_ABAP_STRUCTDESCR=>CREATE( LO_COMP_TAB ).
+  LO_TABLE_TYPE = CL_ABAP_TABLEDESCR=>CREATE( P_LINE_TYPE = LO_STRUCT_TYPE ).
+  CREATE DATA LO_MY_TABLE TYPE HANDLE LO_TABLE_TYPE.
+  ASSIGN LO_MY_TABLE->* TO <FS_HEADER>.
+
+* tem Table 구성.
+  IF GS_SEL-ITEM_TABLE IS NOT INITIAL.
+    LO_STRUCT_TYPE ?= CL_ABAP_TYPEDESCR=>DESCRIBE_BY_NAME( GS_SEL-ITEM_TABLE ).
+    LO_COMP_TAB  = LO_STRUCT_TYPE->GET_COMPONENTS( ).
+
+*APPEND LINES OF lt_comp TO lt_tot_comp.
+
+    LO_STRUCT_TYPE = CL_ABAP_STRUCTDESCR=>CREATE( LO_COMP_TAB ).
+    LO_TABLE_TYPE = CL_ABAP_TABLEDESCR=>CREATE( P_LINE_TYPE = LO_STRUCT_TYPE ).
+    CREATE DATA LO_MY_TABLE TYPE HANDLE LO_TABLE_TYPE.
+    ASSIGN LO_MY_TABLE->* TO <FS_ITEM>.
+  ENDIF.
+
+ENDFORM.                    " DYNAMIC_TABLE_CREATE
+*&---------------------------------------------------------------------*
+*&      Form  GET_HEADER_DATA
+*&---------------------------------------------------------------------*
+FORM GET_HEADER_DATA .
+
+  CHECK GS_SEL-HEADER_TABLE IS NOT INITIAL.
+
+  IF GS_SEL-IFDAT IS NOT INITIAL AND
+     GS_SEL-SUBRC IS NOT INITIAL.
+    
+    DATA(LT_WHERE) = VALUE STR_TAB( ( |     { GS_SEL-IFDAT } IN S_IFDAT | )
+                                    ( | AND { GS_SEL-SUBRC } IN S_SUBRC | ) ).
+
+  ELSEIF GS_SEL-IFDAT IS NOT INITIAL.
+    
+    LT_WHERE = VALUE #( ( | { GS_SEL-IFDAT } IN S_IFDAT | ) ).
+
+  ELSEIF GS_SEL-SUBRC IS NOT INITIAL.
+
+    LT_WHERE = VALUE #( ( | { GS_SEL-SUBRC } IN S_SUBRC | ) ).
+
+  ENDIF.
+
+  IF GS_SEL-SQL_W IS NOT INITIAL.
+    IF LT_WHERE IS NOT INITIAL.
+      LT_WHERE = VALUE #( BASE LT_WHERE
+                          ( | AND { GS_SEL-SQL_W } | ) ).
+    ELSE.
+      LT_WHERE = VALUE #( ( | { GS_SEL-SQL_W } | ) ).
+    ENDIF.
+  ENDIF.
+
+  TRY.
+      IF GS_SEL-SQL_O IS NOT INITIAL.
+
+        SELECT *
+          INTO TABLE <FS_HEADER>
+          FROM (GS_SEL-HEADER_TABLE)
+         WHERE (LT_WHERE)
+      ORDER BY (GS_SEL-SQL_O).
+
+      ELSE.
+
+        SELECT *
+          INTO TABLE <FS_HEADER>
+          FROM (GS_SEL-HEADER_TABLE)
+         WHERE (LT_WHERE).
+
+      ENDIF.
+
+    CATCH CX_SY_DYNAMIC_OSQL_ERROR.
+      MESSAGE TEXT-002 TYPE 'I'.
+  ENDTRY.
+
+  LOOP AT <FS_HEADER> ASSIGNING FIELD-SYMBOL(<FS_LINE>).
+    ASSIGN COMPONENT GS_SEL-SUBRC OF STRUCTURE <FS_LINE> TO FIELD-SYMBOL(<FS_VALUE>).
+    IF SY-SUBRC EQ 0.
+      DATA(LV_SUBRC) = CONV BAPI_MTYPE( <FS_VALUE> ).
+      ASSIGN COMPONENT 'LED' OF STRUCTURE <FS_LINE> TO <FS_VALUE>.
+      IF SY-SUBRC EQ 0.
+        CASE LV_SUBRC.
+          WHEN 'E' OR 'N'.
+            <FS_VALUE> = '1'.  "Red LED
+          WHEN 'W'.
+            <FS_VALUE> = '2'.  "Yellow LED
+          WHEN 'S' OR 'Y'.
+            <FS_VALUE> = '3'.  "Green LED
+          WHEN OTHERS.
+            <FS_VALUE> = '1'.  "Red LED
+        ENDCASE.
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.                    " GET_HEADER_DATA
+*&---------------------------------------------------------------------*
+*&      Form  GET_ITEM_DATA
+*&---------------------------------------------------------------------*
+FORM GET_ITEM_DATA  USING    P_INDEX TYPE I.
+
+  DATA: LT_DFIES TYPE TABLE OF DFIES,
+        LT_WHERE TYPE STR_TAB.
+
+  CHECK GS_SEL-ITEM_TABLE IS NOT INITIAL.
+
+  "Delete item Log
+  ZCL_COC_COMM=>DEL_IF_ITEM( GS_SEL-ZIFID ).
+
+  IF GS_SEL-KEEPD > 0.
+    MESSAGE S000(0K) WITH |{ GS_SEL-KEEPD ALPHA = OUT }| TEXT-006.
+  ENDIF.
+
+  CALL FUNCTION 'DDIF_FIELDINFO_GET'
+    EXPORTING
+      TABNAME        = GS_SEL-ITEM_TABLE
+    TABLES
+      DFIES_TAB      = LT_DFIES
+    EXCEPTIONS
+      NOT_FOUND      = 1
+      INTERNAL_ERROR = 2
+      OTHERS         = 3.
+  IF SY-SUBRC <> 0.
+    MESSAGE E000(0K) WITH TEXT-001 '(' GS_SEL-ITEM_TABLE ')'.
+  ENDIF.
+
+  READ TABLE <FS_HEADER> ASSIGNING FIELD-SYMBOL(<FS_LINE>) INDEX P_INDEX.
+  IF SY-SUBRC EQ 0.
+  ELSE.
+    EXIT .
+  ENDIF.
+
+  "Concatenate WHERE
+  LOOP AT LT_DFIES INTO DATA(LS_DFIES) WHERE KEYFLAG EQ 'X'.
+
+    ASSIGN COMPONENT LS_DFIES-FIELDNAME OF STRUCTURE <FS_LINE> TO FIELD-SYMBOL(<FS_VALUE>).
+    IF SY-SUBRC EQ 0.
+      IF LT_WHERE IS INITIAL.
+        LT_WHERE = VALUE STR_TAB( ( | { LS_DFIES-FIELDNAME } = '{ <FS_VALUE> }' | ) ).
+      ELSE.
+        LT_WHERE = VALUE #( BASE LT_WHERE
+                            ( | AND { LS_DFIES-FIELDNAME } = '{ <FS_VALUE> }' | ) ).
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+
+	DATA(LT_ORDER_BY) = VALUE STR_TAB( ( |MANDT| ) ).
+	IF LINE_EXISTS( LT_DFIES[ FIELDNAME = 'SEQNO' ] ).
+	  LT_ORDER_BY = VALUE #( BASE LT_ORDER_BY ( |SEQNO| ) ).
+	ENDIF.
+
+  TRY.
+      SELECT *
+        INTO TABLE <FS_ITEM>
+        FROM (GS_SEL-ITEM_TABLE)
+       WHERE (LT_WHERE)
+       ORDER BY (LT_ORDER_BY).
+
+    CATCH CX_SY_DYNAMIC_OSQL_ERROR.
+      MESSAGE TEXT-002 TYPE 'I'.
+  ENDTRY.
+
+ENDFORM.                    " GET_ITEM_DATA
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_ALV_GRID
+*&---------------------------------------------------------------------*
+FORM REFRESH_ALV_GRID .
+
+  GR_ZALV1->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+  IF GS_SEL-ITEM_TABLE IS NOT INITIAL.
+    GR_ZALV2->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+  ENDIF.
+
+ENDFORM.                    " REFRESH_ALV_GRID
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_DOUBLE_CLICK  USING     SENDER
+                                    E_ROW     TYPE  LVC_S_ROW
+                                    E_COLUMN  TYPE  LVC_S_COL
+                                    ES_ROW_NO TYPE  LVC_S_ROID.
+
+  CHECK E_ROW-INDEX IS NOT INITIAL.
+
+  DATA(LV_INDEX) = CONV I( E_ROW-INDEX ).
+  PERFORM GET_ITEM_DATA USING LV_INDEX.
+
+  GR_ZALV2->MO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = GR_ZALV2->MT_FDCAT_LVC ).
+  GR_ZALV2->MO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = GR_ZALV2->MS_LAYOUT ).
+  GR_ZALV2->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.                    " PRO_DOUBLE_CLICK1
+*&---------------------------------------------------------------------*
+*&      Form  LVC_LAYOUT_CREATE
+*&---------------------------------------------------------------------*
+FORM LVC_LAYOUT_CREATE .
+
+  GR_ZALV1->MS_LAYOUT = VALUE #( CWIDTH_OPT = 'X'
+                                 EXCP_LED   = 'X'
+                                 EXCP_FNAME = 'LED' ).
+
+  GR_ZALV2->MS_LAYOUT-CWIDTH_OPT = 'X'.
+
+ENDFORM.                    " LVC_LAYOUT_CREATE
+*&---------------------------------------------------------------------*
+*&      Form  TREE_ON_OFF
+*&---------------------------------------------------------------------*
+FORM TREE_ON_OFF .
+
+  GV_FLG_TREE_VISIBLE = SWITCH #( GV_FLG_TREE_VISIBLE WHEN ABAP_ON THEN ABAP_OFF ELSE ABAP_ON ).
+
+  GR_TREE->MO_DOCKING->SET_VISIBLE( VISIBLE = GV_FLG_TREE_VISIBLE ).
+
+ENDFORM.                    " TREE_ON_OFF
+*&---------------------------------------------------------------------*
+*&      Form  SET_NODE_LINE
+*&---------------------------------------------------------------------*
+FORM SET_NODE_LINE  USING    P_DOCKEY   TYPE    TV_NODEKEY.
+
+  READ TABLE GT_CATALOG ASSIGNING FIELD-SYMBOL(<FS_CAT>) WITH KEY DOCKEY =  P_DOCKEY .
+
+  IF SY-SUBRC EQ 0.
+
+    GS_SEL = VALUE #( PROCESS           = <FS_CAT>-PRCSS
+                      P_NAME            = <FS_CAT>-PNAME  
+                      HEADER_TABLE      = <FS_CAT>-HDTAB      
+                      ITEM_TABLE        = <FS_CAT>-ITTAB 
+                      RFC_FUNCTION_NAME = <FS_CAT>-RFCFN ).
+
+    SELECT SINGLE *
+      FROM ZCOCT005
+     WHERE PRCSS = @<FS_CAT>-PRCSS
+       INTO @DATA(LS_005).
+
+    IF SY-SUBRC EQ 0.
+
+      GS_SEL = VALUE #( BASE GS_SEL
+                        ZIFID = LS_005-ZIFID
+                        KEEPD = LS_005-KEEPD
+                        IFDAT = LS_005-IFDAT
+                        SUBRC = LS_005-SUBRC
+                        SQL_W = LS_005-SQL_W
+                        SQL_O = LS_005-SQL_O ).
+
+    ENDIF.
+
+    "REFRESH HEADER TEXT
+    IF GR_ZALV1->MO_HEADER1 IS NOT INITIAL.
+      GR_ZALV1->MO_HEADER1->SET_TITLE( ID = 1 TITLE = CONV #( |{ TEXT-H01 } - { GS_SEL-PROCESS } { GS_SEL-P_NAME }| ) ).
+    ENDIF.
+    
+    IF GR_ZALV1->MO_HEADER2 IS NOT INITIAL.
+      GR_ZALV1->MO_HEADER2->SET_TITLE( ID = 1 TITLE = CONV #( |{ TEXT-H02 } - { GS_SEL-PROCESS } { GS_SEL-P_NAME }| ) ).
+    ENDIF.
+  
+  ENDIF.
+
+ENDFORM.                    " SET_NODE_LINE
+*&---------------------------------------------------------------------*
+*&      Form  SET_REFRESH_LVC_LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_REFRESH_LVC_LAYOUT .
+
+  IF GS_SEL-HEADER_TABLE IS NOT INITIAL.
+
+    GR_ZALV1->MO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = GR_ZALV1->MT_FDCAT_LVC ).
+    GR_ZALV1->MO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = GR_ZALV1->MS_LAYOUT ).
+
+  ENDIF.
+
+  IF GS_SEL-ITEM_TABLE IS NOT INITIAL.
+
+    GR_ZALV2->MO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = GR_ZALV2->MT_FDCAT_LVC ).
+    GR_ZALV2->MO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = GR_ZALV2->MS_LAYOUT ).
+
+  ENDIF.
+
+ENDFORM.                    " SET_REFRESH_LVC_LAYOUT
+*&---------------------------------------------------------------------*
+*&      Form  MAINTAIN_INTERFACE
+*&---------------------------------------------------------------------*
+FORM MAINTAIN_INTERFACE .
+
+  CALL TRANSACTION 'ZCOCV005' AND SKIP FIRST SCREEN.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_TABLES
+*&---------------------------------------------------------------------*
+FORM CHECK_TABLES  CHANGING PV_EXIT.
+
+  CLEAR PV_EXIT.
+
+  IF GS_SEL-HEADER_TABLE IS INITIAL OR
+     GS_SEL-ITEM_TABLE   IS INITIAL.
+    PV_EXIT = ABAP_ON.
+    MESSAGE W000(0K) WITH 'I/F - ' GS_SEL-P_NAME TEXT-005 DISPLAY LIKE 'E'.
+    EXIT.
+  ELSE.
+
+    "Check Headaer Table
+    SELECT SINGLE TABNAME
+      FROM DD02L
+     WHERE TABNAME = @GS_SEL-HEADER_TABLE
+     INTO @DATA(LV_TABNAME).
+
+    IF SY-SUBRC <> 0.
+      PV_EXIT = ABAP_ON.
+      MESSAGE W000(0K) WITH TEXT-007 GS_SEL-HEADER_TABLE DISPLAY LIKE 'E'.
+      EXIT.
+    ENDIF.
+
+    "Check Item Table
+    SELECT SINGLE TABNAME
+      FROM DD02L
+     WHERE TABNAME = @GS_SEL-ITEM_TABLE
+     INTO @LV_TABNAME.
+
+    IF SY-SUBRC <> 0.
+      PV_EXIT = ABAP_ON.
+      MESSAGE W000(0K) WITH TEXT-007 GS_SEL-ITEM_TABLE DISPLAY LIKE 'E'.
+      EXIT.
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_LIST_ITEM_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_LIST_ITEM_DOUBLE_CLICK  USING SENDER 
+                                          NODE_KEY
+                                          ITEM_NAME.
+
+  PERFORM HANDLE_LIST_NODE_DOUBLE_CLICK  USING SENDER 
+                                               NODE_KEY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_LIST_NODE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_LIST_NODE_DOUBLE_CLICK  USING SENDER 
+                                          NODE_KEY.
+
+  DATA LV_EXIT TYPE C.
+
+  PERFORM SET_NODE_LINE USING NODE_KEY.
+
+  PERFORM CHECK_TABLES CHANGING LV_EXIT.
+
+  CHECK LV_EXIT EQ SPACE.
+  
+  PERFORM DYNAMIC_TABLE_CREATE.
+  PERFORM SELECTION_LOG_DATA.
+  
+  PERFORM LVC_FIELD_CATLOG.
+  PERFORM LVC_FIRS_DISPLAY_HEADER.
+  PERFORM LVC_FIRS_DISPLAY_ITEM.  
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  UCOMM_EXEC
+*&---------------------------------------------------------------------*
+FORM UCOMM_EXEC.
+
+  PERFORM SELECTION_LOG_DATA.
+  PERFORM SET_REFRESH_LVC_LAYOUT.
+  PERFORM REFRESH_ALV_GRID.
+
+ENDFORM.                                         

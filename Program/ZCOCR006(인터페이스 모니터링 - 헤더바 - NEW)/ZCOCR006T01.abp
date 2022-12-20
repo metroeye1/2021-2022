@@ -1,0 +1,83 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR006TOP
+*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES : ZCOCT005, ZCOCT009.
+
+*----------------------------------------------------------------------*
+* TYPE-POOLS
+*----------------------------------------------------------------------*
+TYPE-POOLS: SLIS.
+
+*----------------------------------------------------------------------*
+* CONSTANTS (c_)
+*----------------------------------------------------------------------*
+CONSTANTS: C_IN  TYPE CHAR5 VALUE 'IN',
+           C_OUT TYPE CHAR5 VALUE 'OUT'.
+
+*----------------------------------------------------------------------*
+* TYPES
+*----------------------------------------------------------------------*
+TYPES : BEGIN OF TY_S_CATLOG ,
+          DOCKEY   TYPE    TV_NODEKEY,
+          RELATKEY TYPE    TV_NODEKEY,
+          PRCSS    TYPE C  LENGTH   10,
+          PNAME    TYPE C  LENGTH   50,
+          DIRCT    TYPE    EDI_DIRECT,
+          HDTAB    TYPE C  LENGTH   16,
+          ITTAB    TYPE C  LENGTH   16,
+          RFCFN    TYPE C  LENGTH   30,
+        END   OF TY_S_CATLOG.
+
+*----------------------------------------------------------------------*
+* DATA: FIELD (gv_, g_)
+*----------------------------------------------------------------------*
+DATA: GV_FLG_TREE_VISIBLE TYPE C VALUE 'X',
+      GV_GRID_REBLD       TYPE C,
+      Gv_TITLE            TYPE STRING,
+      GR_TREE             TYPE REF TO ZCL_COC_ALV,
+      GR_ZALV1            TYPE REF TO ZCL_COC_ALV,
+      GR_ZALV2            TYPE REF TO ZCL_COC_ALV,
+      GR_EVENT_HANDLER    TYPE REF TO ZCL_COC_EVENT_HANDLER.
+
+*----------------------------------------------------------------------*
+* DATA: INTERNAL TABLE / STRUCTURE (gs_, gt_)
+*----------------------------------------------------------------------*
+DATA : GT_TREE_NODE TYPE TREEV_NTAB,
+       GT_TREE_ITEM TYPE BDMT_ITEM_TABLE_TYP, "fmbw_t_doctree,
+       GT_CATALOG   TYPE TABLE OF TY_S_CATLOG.
+
+*// Structure.
+DATA : BEGIN OF GS_SEL,
+         HEADER_TABLE      LIKE DD02L-TABNAME,
+         ITEM_TABLE        LIKE DD02L-TABNAME,
+         RFC_FUNCTION_NAME LIKE ZCOCT005-RFCFN,
+         PROCESS           LIKE ZCOCT005-PRCSS,
+         P_NAME            LIKE ZCOCT005-PNAME,
+         ZIFID             LIKE ZCOCT005-ZIFID,
+         KEEPD             LIKE ZCOCT005-KEEPD,
+         IFDAT             LIKE ZCOCT005-IFDAT,
+         SUBRC             LIKE ZCOCT005-SUBRC,
+         SQL_W             LIKE ZCOCT005-SQL_W,
+         SQL_O             LIKE ZCOCT005-SQL_O,
+       END   OF GS_SEL.
+
+*----------------------------------------------------------------------*
+* FIELD-SYMBOLS (<g_>)
+*----------------------------------------------------------------------*
+FIELD-SYMBOLS: <FS_HEADER> TYPE TABLE,
+               <FS_ITEM>   TYPE TABLE.
+
+*&---------------------------------------------------------------------*
+* SELECTION-SCREEN
+*&---------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF SCREEN 1100 AS SUBSCREEN.
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-000   .
+
+SELECT-OPTIONS : S_IFDAT FOR ZCOCT009-IFDAT,
+                 S_SUBRC FOR ZCOCT009-SUBRC NO INTERVALS.
+
+SELECTION-SCREEN END   OF BLOCK B1 .
+SELECTION-SCREEN END OF SCREEN 1100.

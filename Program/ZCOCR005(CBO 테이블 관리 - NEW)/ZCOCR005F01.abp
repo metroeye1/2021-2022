@@ -1,0 +1,1516 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZLSHADMINF01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  INITIALIZATION
+*&---------------------------------------------------------------------*
+FORM INITIALIZATION .
+
+  GR_ZALV1 = NEW #( ).
+  GR_ZALV2 = NEW #( ).
+  GR_ZALV3 = NEW #( ).
+
+  GV_LEFT_WIDTH = 30.
+  GV_DATA_CNT   = 1000.
+  GV_LABEL      = ABAP_ON.
+
+  GV_TITLE = ZCL_COC_UTIL=>GET_TITLE( SY-CPROG ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F4_TABNAM
+*&---------------------------------------------------------------------*
+FORM F4_TABNAM  USING    P_FNAME
+                         P_CBO_ONLY.
+
+* F4 테이블 명
+  DATA(LT_WHERE) = VALUE STR_TAB( ( | B~DDLANGUAGE = @SY-LANGU | )
+                                  ( | AND B~AS4LOCAL = 'A' | )
+                                  ( SWITCH #( P_CBO_ONLY WHEN ABAP_ON THEN | AND ( A~TABNAME LIKE 'Y%' OR A~TABNAME LIKE 'Z%' ) | ) ) ).
+
+  SELECT A~TABNAME, 
+         B~DDTEXT
+    FROM ZCOCT006 AS A 
+   INNER JOIN DD02T AS B ON A~TABNAME = B~TABNAME
+   WHERE (LT_WHERE)
+   ORDER BY A~TABNAME
+    INTO TABLE @DATA(LT_VALUE).
+
+  PERFORM F4_VALUES TABLES LT_VALUE
+                     USING 'TABNAME'
+                           P_FNAME.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F4_VALUES
+*&---------------------------------------------------------------------*
+FORM F4_VALUES  TABLES   PT_VALUE
+                USING    P_RETFIELD
+                         P_FNAME.
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      RETFIELD        = P_RETFIELD
+      DYNPPROG        = SY-REPID
+      DYNPNR          = SY-DYNNR
+      DYNPROFIELD     = P_FNAME
+      VALUE_ORG       = 'S'
+    TABLES
+      VALUE_TAB       = PT_VALUE[]
+    EXCEPTIONS
+      PARAMETER_ERROR = 1
+      NO_VALUES_FOUND = 2
+      OTHERS          = 3.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+FORM GET_DATA .
+
+  DATA: LT_QUERY TYPE TABLE OF RFC_DB_OPT.
+
+  CLEAR GT_RESULT_100.
+
+    SELECT A~ZMODULE,
+           A~TABNAME,
+           A~DISP_SEQ,
+           A~BACKUP
+      FROM ZCOCT006 AS A 
+     INNER JOIN TADIR AS B ON A~TABNAME = B~OBJ_NAME
+     WHERE A~ZMODULE IN @S_ZMODUL
+       AND A~TABNAME IN @S_TABNAM
+       AND B~PGMID   EQ @C_PGMID
+       AND B~OBJECT  EQ @C_OBJECT
+      INTO CORRESPONDING FIELDS OF TABLE @GT_RESULT_100.
+
+* DEFAULT로 기본 테이블을 추가한다.
+  IF NOT LINE_EXISTS( GT_RESULT_100[ TABNAME = C_MAIN_TAB ] ).
+    GT_RESULT_100 = VALUE #( BASE GT_RESULT_100 ( ZMODULE = 'CM'
+                                                  TABNAME = C_MAIN_TAB ) ).
+  ENDIF.
+
+  SELECT A~TABNAME,
+         A~DDTEXT
+    FROM DD02T AS A
+   INNER JOIN @GT_RESULT_100 AS B ON B~TABNAME = A~TABNAME
+   WHERE A~DDLANGUAGE = @SY-LANGU
+     AND A~AS4LOCAL   = 'A'
+   ORDER BY A~TABNAME
+    INTO TABLE @DATA(LT_DD02T).
+
+  LOOP AT GT_RESULT_100 ASSIGNING FIELD-SYMBOL(<FS_RESULT_100>).
+
+    READ TABLE LT_DD02T INTO DATA(LS_DD02T) WITH KEY TABNAME = <FS_RESULT_100>-TABNAME
+                                                     BINARY SEARCH.
+
+    <FS_RESULT_100>-TABNAME_TXT = LS_DD02T-DDTEXT.
+    <FS_RESULT_100>-FILTER      = ICON_FILTER.
+    <FS_RESULT_100>-DISP_ALL    = ICON_LIST.
+
+    PERFORM CALCULATE_DATA_COUNT     TABLES LT_QUERY
+                                      USING <FS_RESULT_100>-TABNAME
+                                   CHANGING <FS_RESULT_100>-DATA_CNT.
+
+  ENDLOOP.
+
+  SORT GT_RESULT_100 BY ZMODULE DISP_SEQ TABNAME.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CALCULATE_DATA_COUNT
+*&---------------------------------------------------------------------*
+FORM CALCULATE_DATA_COUNT  TABLES   PT_QUERY
+                           USING    P_TABNAME
+                           CHANGING P_DATA_CNT.
+
+  TRY.
+
+      SELECT COUNT( * )
+        INTO P_DATA_CNT
+        FROM (P_TABNAME)
+       WHERE (PT_QUERY).
+
+    CATCH CX_SY_DYNAMIC_OSQL_ERROR.
+      MESSAGE TEXT-M09 TYPE 'S' DISPLAY LIKE 'E'.
+
+  ENDTRY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GEN_ALV
+*&---------------------------------------------------------------------*
+FORM GEN_ALV .
+
+  IF GT_RESULT_100 IS INITIAL.
+    MESSAGE S000 WITH TEXT-M01 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ELSE.
+    READ TABLE GT_RESULT_100 INTO DATA(LS_RESULT_100) INDEX 1.
+    PERFORM CREATE_DYNAMIC_TABLE USING LS_RESULT_100-TABNAME.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_DYNAMIC_TABLE
+*&---------------------------------------------------------------------*
+FORM CREATE_DYNAMIC_TABLE  USING    P_TABNAME.
+
+  DATA: L_DATA_TAB     TYPE REF TO DATA,
+        LO_DREF        TYPE REF TO DATA,
+        LO_GET_TYPE    TYPE REF TO CL_ABAP_ELEMDESCR,
+        LO_STR_TYPE    TYPE REF TO CL_ABAP_STRUCTDESCR,
+        LO_TAB_TYPE    TYPE REF TO CL_ABAP_TABLEDESCR,
+        LO_COMP_TAB    TYPE CL_ABAP_STRUCTDESCR=>COMPONENT_TABLE,
+        LO_COMP        LIKE LINE OF LO_COMP_TAB.
+
+  UNASSIGN: <FS_DYN_TABLE>,
+            <FS_DYN_TABLE_DOWN>,
+            <FS_DYN_TABLE_DISP>.
+  
+*----------------------------------------------------------------------
+* Create Dynamic Table
+*----------------------------------------------------------------------
+* For Table
+  CREATE DATA L_DATA_TAB TYPE STANDARD TABLE OF (P_TABNAME).
+  ASSIGN L_DATA_TAB->* TO <FS_DYN_TABLE>.
+
+* For Download
+  CREATE DATA L_DATA_TAB TYPE STANDARD TABLE OF (P_TABNAME).
+  ASSIGN L_DATA_TAB->* TO <FS_DYN_TABLE_DOWN>.
+
+*----------------------------------------------------------------------
+* Create Field Catalog
+*----------------------------------------------------------------------
+  "GET FIELD CATALOG
+  GR_ZALV2->MAKE_FIELDCATALOG( IV_MODE = 'S' IV_TABNAME = CONV #( P_TABNAME ) ).
+
+  SELECT A~*,
+         @P_EDIT AS EDIT,
+         @SPACE  AS NO_OUT,
+         CASE WHEN A~REF_TABLE IS NOT INITIAL AND A~REF_FIELD IS INITIAL THEN A~FIELDNAME END AS REF_FIELD,
+         CASE WHEN A~REPTEXT IS NOT INITIAL THEN A~REPTEXT ELSE CASE WHEN B~DDTEXT IS NOT INITIAL THEN B~DDTEXT ELSE C~DDTEXT END END AS REPTEXT
+    FROM @GR_ZALV2->MT_FDCAT_LVC AS A
+    LEFT JOIN DD03T AS B ON B~TABNAME    = @P_TABNAME
+                        AND B~FIELDNAME  = A~FIELDNAME
+                        AND B~DDLANGUAGE = @SY-LANGU
+    LEFT JOIN DD01T AS C ON C~DOMNAME    = A~DOMNAME     
+                        AND C~DDLANGUAGE = @SY-LANGU
+    INTO CORRESPONDING FIELDS OF TABLE @GR_ZALV2->MT_FDCAT_LVC.
+
+*----------------------------------------------------------------------
+* Create Dynamic Table with Style for Display
+*----------------------------------------------------------------------
+  CLEAR: GR_ZALV2->MT_CELLTAB, LO_COMP_TAB.
+
+  LOOP AT GR_ZALV2->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+    "LABEL / FIELD NAME
+    <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-COLTEXT = <FS_FDCAT>-SELTEXT = 
+    SWITCH #( GV_LABEL WHEN ABAP_ON THEN <FS_FDCAT>-REPTEXT ELSE <FS_FDCAT>-FIELDNAME ).
+
+    "SET STYLE FOR KEY FIELD
+    IF <FS_FDCAT>-KEY IS NOT INITIAL.
+      GR_ZALV2->MT_CELLTAB = VALUE #( BASE GR_ZALV2->MT_CELLTAB
+                                      ( FIELDNAME = <FS_FDCAT>-FIELDNAME
+                                        STYLE     = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED + ALV_STYLE_FONT_BOLD ) ).
+    ENDIF.
+
+    "APPEND COMPONENTS
+    LO_COMP-NAME = <FS_FDCAT>-FIELDNAME.
+
+    IF <FS_FDCAT>-REF_TABLE IS NOT INITIAL AND
+       <FS_FDCAT>-REF_FIELD IS NOT INITIAL.
+      LO_GET_TYPE ?= CL_ABAP_ELEMDESCR=>DESCRIBE_BY_NAME( |{ <FS_FDCAT>-REF_TABLE }-{ <FS_FDCAT>-REF_FIELD }| ).
+    ELSE.
+      LO_GET_TYPE ?= CL_ABAP_ELEMDESCR=>GET_STRING( ).
+    ENDIF.
+
+    LO_COMP-TYPE = LO_GET_TYPE.
+    APPEND LO_COMP TO LO_COMP_TAB.
+
+  ENDLOOP.
+
+  "CELLTAB 추가
+  LO_COMP-TYPE ?= CL_ABAP_TYPEDESCR=>DESCRIBE_BY_DATA( GR_ZALV2->MT_CELLTAB ).
+  LO_COMP-NAME  = C_CELLTAB.
+  APPEND LO_COMP TO LO_COMP_TAB.
+
+  LO_TAB_TYPE = CL_ABAP_TABLEDESCR=>CREATE( CL_ABAP_STRUCTDESCR=>CREATE( LO_COMP_TAB ) ).
+  CREATE DATA LO_DREF TYPE HANDLE LO_TAB_TYPE.
+  ASSIGN LO_DREF->* TO <FS_DYN_TABLE_DISP>.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHANGE_LABEL
+*&---------------------------------------------------------------------*
+FORM CHANGE_LABEL.
+
+  GV_LABEL = SWITCH #( GV_LABEL WHEN ABAP_ON THEN ABAP_OFF ELSE ABAP_ON ).
+
+  LOOP AT GR_ZALV2->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+    <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-COLTEXT = <FS_FDCAT>-SELTEXT = 
+    SWITCH #( GV_LABEL WHEN ABAP_ON THEN <FS_FDCAT>-REPTEXT ELSE <FS_FDCAT>-FIELDNAME ).
+  ENDLOOP.
+
+  PERFORM REFRESH_ALV USING 2.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_ALV
+*&---------------------------------------------------------------------*
+FORM REFRESH_ALV  USING  PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV>->MO_GRID IS NOT INITIAL.
+
+  IF PV_TAR = 2.
+    <FS_ALV>->MO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = <FS_ALV>->MT_FDCAT_LVC ).
+  ENDIF.
+
+  <FS_ALV>->MO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = <FS_ALV>->MS_LAYOUT ).
+  <FS_ALV>->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+  CL_GUI_CFW=>FLUSH( ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHANGE_SCREEN_SIZE
+*&---------------------------------------------------------------------*
+FORM CHANGE_SCREEN_SIZE.
+
+  GV_LEFT_WIDTH = SWITCH #( GV_LEFT_WIDTH WHEN 30 THEN 0 ELSE 30 ).
+
+  GR_ZALV1->MO_SPLIT->SET_COLUMN_WIDTH( ID = 1 WIDTH = GV_LEFT_WIDTH ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_HOTSPOT_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_HOTSPOT_CLICK  USING    SENDER
+                                    PS_ROW_ID      LIKE LVC_S_ROW
+                                    PS_COLUMN_ID   LIKE LVC_S_COL
+                                    PS_ROW_NO      LIKE LVC_S_ROID.
+
+  CASE SENDER.
+
+    WHEN GR_ZALV1->MO_GRID.
+
+      GS_RESULT_100 = VALUE #( GT_RESULT_100[ PS_ROW_ID-INDEX ] ).
+
+      CHECK SY-SUBRC = 0.
+
+      CASE PS_COLUMN_ID-FIELDNAME.
+
+        WHEN 'TABNAME' OR 'FILTER'.
+          PERFORM GET_AND_DISPLAY_DATA USING GS_RESULT_100.
+
+        WHEN 'DATA_CNT' OR 'TABNAME_TXT' OR 'DISP_ALL'.
+          PERFORM DISPLAY_ALL_DATA USING GS_RESULT_100.
+
+      ENDCASE.
+
+    WHEN GR_ZALV3->MO_GRID.
+
+      ASSIGN GT_FIELDLIST[ PS_ROW_ID-INDEX ] TO FIELD-SYMBOL(<FS_FIELDLIST>).
+
+      CHECK SY-SUBRC = 0.
+
+      IF GR_EDITOR IS NOT INITIAL.
+        GR_EDITOR->GET_TEXT_AS_R3TABLE( IMPORTING TABLE = GT_QUERY ).
+      ENDIF.
+
+      IF GT_QUERY IS INITIAL.
+        GT_QUERY = VALUE #( BASE GT_QUERY ( TEXT = |{ <FS_FIELDLIST>-FIELDNAME } = | ) ).
+      ELSE.
+        GT_QUERY = VALUE #( BASE GT_QUERY ( TEXT = |AND { <FS_FIELDLIST>-FIELDNAME } = | ) ).
+      ENDIF.
+
+      GR_EDITOR->SET_TEXT_AS_R3TABLE( EXPORTING TABLE = GT_QUERY ).
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_DOUBLE_CLICK  USING     SENDER
+                                    PS_ROW_ID      LIKE LVC_S_ROW
+                                    PS_COLUMN_ID   LIKE LVC_S_COL
+                                    PS_ROW_NO      LIKE LVC_S_ROID.
+
+  FIELD-SYMBOLS: <FS_LDATA>.
+  
+  DATA: L_DATA TYPE REF TO DATA.
+
+  CASE SENDER.
+    WHEN GR_ZALV1->MO_GRID.
+    
+      GS_RESULT_100 = VALUE #( GT_RESULT_100[ PS_ROW_ID-INDEX ] ).
+
+      CHECK SY-SUBRC = 0.
+
+      CASE PS_COLUMN_ID-FIELDNAME.
+        WHEN 'ZMODULE' OR 'TABNAME' OR 'TABNAME_TXT' OR 'DATA_CNT'.
+          PERFORM DISPLAY_ALL_DATA USING GS_RESULT_100.
+      ENDCASE.
+
+    WHEN GR_ZALV2->MO_GRID.
+
+      CHECK SY-SUBRC = 0 AND GS_RESULT_100-TABNAME EQ C_BLOG_TAB.
+
+      READ TABLE <FS_DYN_TABLE_DISP> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA_DISP>) INDEX PS_ROW_ID-INDEX.
+      ASSIGN COMPONENT 'TABNAME' OF STRUCTURE <FS_DYN_WA_DISP> TO FIELD-SYMBOL(<FS_TABNM>).
+      ASSIGN COMPONENT 'DATA'    OF STRUCTURE <FS_DYN_WA_DISP> TO FIELD-SYMBOL(<FS_DATA>).
+      DATA(LV_DATA) = CONV RSRAWSTRING( <FS_DATA> ). "RAWSTRING 타입의 변수에 담지 않으면 TRANSFORMATION 시 타입 오류
+
+      CREATE DATA L_DATA TYPE STANDARD TABLE OF (<FS_TABNM>).
+      ASSIGN L_DATA->* TO <FS_LDATA>.
+      
+      CALL TRANSFORMATION ID SOURCE XML LV_DATA RESULT TAB = <FS_LDATA>.
+      
+      ZCL_COC_COMM=>SIMPLE_ALV( EXPORTING IV_TITLE     = CONV #( |{ <FS_TABNM> }_LOG DATA| )
+                                          IV_TOOLBAR   = ABAP_ON
+                                          IT_ITAB      = <FS_LDATA>
+*                                      IT_NOOUT     = LT_NO_OUT
+*                                      IT_HDTXT     = LT_HDTXT
+                                          IV_START_COLUMN = 10
+                                          IV_START_LINE   = 3
+                                          IV_END_COLUMN   = 120
+                                          IV_END_LINE     = 30 ).
+      
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_AND_DISPLAY_DATA
+*&---------------------------------------------------------------------*
+FORM GET_AND_DISPLAY_DATA  USING    PS_RESULT_100 TYPE TY_RESULT_100.
+
+  CLEAR GV_SUBRC.
+
+  PERFORM CREATE_DYNAMIC_TABLE USING PS_RESULT_100-TABNAME.
+  PERFORM SET_FILTER_KEY_FIELDS CHANGING GV_SUBRC.
+
+  CHECK GV_SUBRC = 0.
+
+  PERFORM MAKE_RIGHT_ALV USING PS_RESULT_100.
+  PERFORM DISPLAY_ALV USING 2.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_FILTER_KEY_FIELDS
+*&---------------------------------------------------------------------*
+FORM SET_FILTER_KEY_FIELDS  CHANGING P_SUBRC.
+
+  DATA: LT_FIELD_RANGES  TYPE RSDS_TRANGE,
+        LT_WHERE_CLAUSES TYPE RSDS_TWHERE,
+        LT_SELOPT        TYPE RSDS_SELOPT_T,
+        LT_FRANGE        TYPE RSDS_FRANGE_T,
+        LT_GROUPS        TYPE LVC_T_SGRP,
+        LV_ORDER         TYPE LVC_S_FILT-ORDER.
+
+  CHECK GR_ZALV3->MV_UCOMM <> 'SAVE_200'.
+
+  CLEAR GT_QUERY.
+
+  CHECK <FS_DYN_TABLE_DISP> IS ASSIGNED AND
+        <FS_DYN_TABLE>      IS ASSIGNED.
+
+  "SET FILTER FIELDS
+  CLEAR: GR_ZALV2->MT_FILTER.
+  LOOP AT GR_ZALV2->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>) WHERE KEY = C_X
+                                                                      AND DATATYPE <> 'CLNT'.
+    APPEND INITIAL LINE TO GR_ZALV2->MT_FILTER ASSIGNING FIELD-SYMBOL(<FS_FILT>).
+    <FS_FILT> = CORRESPONDING #( <FS_FDCAT> ).
+    
+    IF <FS_FILT>-SELTEXT IS INITIAL.
+      <FS_FILT>-SELTEXT = <FS_FDCAT>-SCRTEXT_L.
+    ENDIF.
+
+    LV_ORDER = LV_ORDER + 1.
+    <FS_FILT>-ORDER = LV_ORDER.
+
+  ENDLOOP.
+
+  "FILTER DIALOG
+  CALL FUNCTION 'LVC_FILTER_DIALOG'
+    EXPORTING
+      IT_FIELDCAT   = GR_ZALV2->MT_FDCAT_LVC
+      IT_GROUPS     = LT_GROUPS
+    TABLES
+      IT_DATA       = <FS_DYN_TABLE_DISP>
+    CHANGING
+      CT_FILTER_LVC = GR_ZALV2->MT_FILTER
+    EXCEPTIONS
+      NO_CHANGE     = 1
+      OTHERS        = 2.
+  IF SY-SUBRC <> 0.
+
+    P_SUBRC = 4.
+    MESSAGE S000 WITH TEXT-M07 DISPLAY LIKE 'E'.
+
+  ENDIF.
+
+  CHECK P_SUBRC = 0.
+
+  "MAKE WHERE CLAUSE
+  LOOP AT GR_ZALV2->MT_FILTER ASSIGNING <FS_FILT> WHERE SIGN IS NOT INITIAL.
+
+    DATA(LV_TABNAME) = <FS_FILT>-TABNAME.
+
+    AT NEW FIELDNAME.
+      CLEAR LT_SELOPT.
+    ENDAT.
+
+    APPEND INITIAL LINE TO LT_SELOPT ASSIGNING FIELD-SYMBOL(<FS_SELOPT>).
+    <FS_SELOPT> = CORRESPONDING #( <FS_FILT> ).
+
+    AT END OF FIELDNAME.
+      LT_FRANGE = VALUE #( BASE LT_FRANGE ( FIELDNAME = <FS_FILT>-FIELDNAME
+                                            SELOPT_T  = LT_SELOPT ) ).
+    ENDAT.
+
+    AT LAST.
+      LT_FIELD_RANGES = VALUE #( ( TABLENAME  = CONV #( LV_TABNAME )
+                                   FRANGE_T   = LT_FRANGE ) ).
+
+      CALL FUNCTION 'FREE_SELECTIONS_RANGE_2_WHERE'
+        EXPORTING
+          FIELD_RANGES  = LT_FIELD_RANGES
+        IMPORTING
+          WHERE_CLAUSES = LT_WHERE_CLAUSES.
+
+    ENDAT.
+
+  ENDLOOP.
+
+  ASSIGN LT_WHERE_CLAUSES[ 1 ] TO FIELD-SYMBOL(<FS_WHERE>).
+  IF SY-SUBRC = 0.
+    GT_QUERY = <FS_WHERE>-WHERE_TAB.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  MAKE_RIGHT_ALV
+*&---------------------------------------------------------------------*
+FORM MAKE_RIGHT_ALV  USING    PS_DATA TYPE TY_RESULT_100.
+
+
+  CHECK <FS_DYN_TABLE_DISP> IS ASSIGNED AND
+        <FS_DYN_TABLE>      IS ASSIGNED.
+
+  CLEAR: GV_RESULT_CNT, GV_TOTAL_CNT.
+
+  PERFORM GET_TABLE_DATA USING PS_DATA-TABNAME.
+
+  "SET LAYOUT GRID TITLE
+  GR_ZALV2->MO_HEADER1->SET_TITLE( ID    = 1
+                                   TITLE = CONV #( |{ PS_DATA-TABNAME } - { PS_DATA-TABNAME_TXT } ( { GV_RESULT_CNT NUMBER = ENVIRONMENT } / { GV_TOTAL_CNT NUMBER = ENVIRONMENT } )| ) ).
+
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_TABLE_DATA
+*&---------------------------------------------------------------------*
+FORM GET_TABLE_DATA  USING    P_TABNAME.
+
+  CLEAR: <FS_DYN_TABLE_DISP>, <FS_DYN_TABLE>.
+
+  IF GV_DATA_CNT IS NOT INITIAL.
+
+    TRY.
+        SELECT * INTO TABLE <FS_DYN_TABLE>
+          FROM (P_TABNAME) UP TO GV_DATA_CNT ROWS
+         WHERE (GT_QUERY).
+
+      CATCH CX_SY_DYNAMIC_OSQL_ERROR.
+        DATA(L_SQL_ERROR) = C_X.
+        MESSAGE TEXT-M09 TYPE 'I' DISPLAY LIKE 'E'.
+    ENDTRY.
+
+  ELSE.
+
+    TRY.
+        SELECT * INTO TABLE <FS_DYN_TABLE>
+          FROM (P_TABNAME)
+         WHERE (GT_QUERY).
+
+      CATCH CX_SY_DYNAMIC_OSQL_ERROR.
+        L_SQL_ERROR = C_X.
+        MESSAGE TEXT-M09 TYPE 'I' DISPLAY LIKE 'E'.
+    ENDTRY.
+
+  ENDIF.
+
+  IF L_SQL_ERROR IS NOT INITIAL.
+    CLEAR: GV_RESULT_CNT, GV_TOTAL_CNT.
+    EXIT.
+  ENDIF.
+
+  CHECK SY-DBCNT <> 0.
+
+  GV_RESULT_CNT = SY-DBCNT.
+
+  PERFORM CALCULATE_DATA_COUNT TABLES   GT_QUERY
+                               USING    P_TABNAME
+                               CHANGING GV_TOTAL_CNT.
+
+  "MAKE OUTPUT DATA
+  DATA(LT_KEY) = VALUE ABAP_SORTORDER_TAB( FOR WA IN GR_ZALV2->MT_FDCAT_LVC WHERE ( KEY IS NOT INITIAL )
+                                           ( NAME = WA-FIELDNAME ) ).
+
+  IF LT_KEY IS INITIAL.
+    SORT <FS_DYN_TABLE>.
+  ELSE.
+    SORT <FS_DYN_TABLE> BY (LT_KEY).
+  ENDIF.
+
+  LOOP AT <FS_DYN_TABLE> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA>).
+
+    APPEND INITIAL LINE TO <FS_DYN_TABLE_DISP> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA_DISP>).
+    <FS_DYN_WA_DISP> = CORRESPONDING #( <FS_DYN_WA> ).
+
+    "SET KEY FIELD
+    ASSIGN COMPONENT C_CELLTAB OF STRUCTURE <FS_DYN_WA_DISP> TO FIELD-SYMBOL(<FS_VALUE>).
+    <FS_VALUE> = GR_ZALV2->MT_CELLTAB.
+
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM HANDLE_TOOLBAR  USING    SENDER
+                              P_OBJECT   TYPE REF TO CL_ALV_EVENT_TOOLBAR_SET
+                              P_INTERACTIVE.
+
+  CASE SENDER.
+    WHEN GR_ZALV1->MO_GRID.
+
+      P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+          ( FUNCTION = ''       ICON = ''           BUTN_TYPE = 3  TEXT = ''             QUICKINFO = '')
+          ( FUNCTION = 'SQL'    ICON = ICON_QUERY   BUTN_TYPE = 0  TEXT = TEXT-B04       QUICKINFO = '')
+        ).
+
+    WHEN GR_ZALV2->MO_GRID.
+    
+      P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+          ( FUNCTION = ''         ICON = ''                BUTN_TYPE = 3  TEXT = ''             QUICKINFO = '')
+          ( FUNCTION = 'REFRESH'  ICON = ICON_REFRESH      BUTN_TYPE = 0  TEXT = TEXT-B06       QUICKINFO = '')
+          ( FUNCTION = 'EXPORT'   ICON = ICON_EXPORT       BUTN_TYPE = 0  TEXT = TEXT-B01       QUICKINFO = '') ).
+
+      CHECK P_EDIT IS NOT INITIAL.
+
+      P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+          ( FUNCTION = 'IMPORT'   ICON = ICON_IMPORT       BUTN_TYPE = 0  TEXT = TEXT-B02       QUICKINFO = '')
+          ( FUNCTION = 'SAVE'     ICON = ICON_SYSTEM_SAVE  BUTN_TYPE = 0  TEXT = TEXT-B03       QUICKINFO = '')
+          ( FUNCTION = 'DELETE'   ICON = ICON_DELETE       BUTN_TYPE = 0  TEXT = TEXT-B05       QUICKINFO = '') ).
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_USER_COMMAND
+*&---------------------------------------------------------------------*
+FORM HANDLE_USER_COMMAND  USING    SENDER
+                                   P_UCOMM.
+
+  CLEAR GV_SUBRC.
+
+  CASE SENDER.
+
+    WHEN GR_ZALV1->MO_GRID. "FOR LEFT GRID
+
+      CASE P_UCOMM.
+        WHEN 'SQL'.
+          PERFORM UCOMM_SQL.
+      ENDCASE.
+
+    WHEN GR_ZALV2->MO_GRID. "FOR RIGHT GRID
+
+      CASE P_UCOMM.
+        WHEN 'REFRESH'.
+          PERFORM REFRESH_RIGHT_DATA.
+        WHEN 'SAVE'.
+          PERFORM UCOMM_SAVE.
+        WHEN 'DELETE'.
+          PERFORM UCOMM_DELETE.
+        WHEN 'EXPORT'.
+          PERFORM UCOMM_EXPORT.
+        WHEN 'IMPORT'.
+          PERFORM UCOMM_IMPORT.
+      ENDCASE.
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_SELECTED_ROW
+*&---------------------------------------------------------------------*
+FORM GET_SELECTED_ROW  USING    PC_GRID TYPE REF TO ZCL_COC_GUI_ALV_GRID
+                       CHANGING P_SUBRC.
+
+  PC_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = GT_SELECTED_ROW ).
+
+  IF GT_SELECTED_ROW IS INITIAL.
+    P_SUBRC = 4.
+    MESSAGE S000 WITH TEXT-M02 DISPLAY LIKE 'E'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_PREVIOUS_SQL
+*&---------------------------------------------------------------------*
+FORM GET_PREVIOUS_SQL  USING    P_TABNAME.
+
+    SELECT TEXT
+      FROM ZCOCT007
+     WHERE TABNAME = @P_TABNAME
+       AND BNAME   = @SY-UNAME
+     ORDER BY ZSEQ
+      INTO CORRESPONDING FIELDS OF TABLE @GT_QUERY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  GET_FIELD_LIST_RFC
+*&---------------------------------------------------------------------*
+FORM GET_FIELD_LIST_RFC  USING    P_TABNAME.
+
+  DATA: LO_STR_TYPE TYPE REF TO CL_ABAP_STRUCTDESCR.
+
+  LO_STR_TYPE ?= CL_ABAP_STRUCTDESCR=>DESCRIBE_BY_NAME( P_TABNAME ).
+  DATA(LT_DFIES) = CL_SALV_DATA_DESCR=>READ_STRUCTDESCR( LO_STR_TYPE ).
+  
+  GT_FIELDLIST = VALUE #( FOR WA IN LT_DFIES INDEX INTO IDX
+                          ( POSITION      = IDX
+                            FIELDNAME     = WA-FIELDNAME
+                            FIELDNAME_TXT = WA-FIELDTEXT
+                            DATATYPE      = WA-DATATYPE
+                            LENGTH        = WA-LENG ) ).
+
+  SORT GT_FIELDLIST.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CLEAR_EDITOR
+*&---------------------------------------------------------------------*
+FORM CLEAR_EDITOR .
+
+  IF GR_EDITOR IS NOT INITIAL.
+    GR_EDITOR->FREE( ).
+    CLEAR GR_EDITOR.
+  ENDIF.
+
+  IF GR_EDITOR_CONTAINER IS NOT INITIAL.
+    GR_EDITOR_CONTAINER->FREE(  ).
+    CLEAR GR_EDITOR_CONTAINER.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_QUERY
+*&---------------------------------------------------------------------*
+FORM SAVE_QUERY  CHANGING P_SUBRC.
+
+  DATA: LT_ZCOCT007 TYPE TABLE OF ZCOCT007.
+
+  "RETRIEVE TABLE FROM CONTROL
+  CLEAR GT_QUERY.
+
+  IF GR_EDITOR IS NOT INITIAL.
+    GR_EDITOR->GET_TEXT_AS_R3TABLE( IMPORTING TABLE = GT_QUERY ).
+    CL_GUI_CFW=>FLUSH( ).
+  ENDIF.
+
+  "SAVE QUERY
+  CHECK GT_QUERY IS NOT INITIAL.
+
+  LOOP AT GT_QUERY INTO DATA(LS_QUERY).
+
+    LT_ZCOCT007 = VALUE #( BASE LT_ZCOCT007 ( TABNAME = GS_RESULT_100-TABNAME
+                                              BNAME   = SY-UNAME
+                                              ZSEQ    = SY-TABIX
+                                              TEXT    = LS_QUERY-TEXT
+                                              ERNAM   = SY-UNAME
+                                              ERDAT   = SY-DATUM
+                                              ERZET   = SY-UZEIT
+                                              AENAM   = SY-UNAME
+                                              AEDAT   = SY-DATUM
+                                              AEZET   = SY-UZEIT ) ).
+
+  ENDLOOP.
+
+  DELETE FROM ZCOCT007
+   WHERE TABNAME = GS_RESULT_100-TABNAME
+     AND BNAME   = SY-UNAME.
+
+  INSERT ZCOCT007 FROM TABLE LT_ZCOCT007.
+  IF SY-SUBRC = 0.
+    COMMIT WORK.
+  ELSE.
+    ROLLBACK WORK.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_RIGHT_DATA
+*&---------------------------------------------------------------------*
+FORM REFRESH_RIGHT_DATA .
+
+  CHECK GS_RESULT_100 IS NOT INITIAL.
+
+  PERFORM MAKE_RIGHT_ALV USING GS_RESULT_100.
+  PERFORM REFRESH_ALV USING 2.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_LEFT_DATA
+*&---------------------------------------------------------------------*
+FORM REFRESH_LEFT_DATA .
+
+  PERFORM GET_DATA.
+  PERFORM REFRESH_ALV USING 1.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_VALID
+*&---------------------------------------------------------------------*
+FORM CHECK_VALID  USING    PC_GRID TYPE REF TO ZCL_COC_GUI_ALV_GRID
+                  CHANGING P_SUBRC.
+
+  IF PC_GRID IS NOT INITIAL.
+    PC_GRID->CHECK_CHANGED_DATA( IMPORTING E_VALID = DATA(L_VALID) ).
+  ENDIF.
+
+  IF L_VALID IS INITIAL.
+    P_SUBRC = 4.
+  ENDIF.
+
+  CHECK P_SUBRC = 0.
+  IF GS_RESULT_100-TABNAME IS INITIAL.
+    P_SUBRC = 4.
+    MESSAGE S000 WITH TEXT-M11 DISPLAY LIKE 'E'.
+  ENDIF.
+  CHECK P_SUBRC = 0.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_TO_DB
+*&---------------------------------------------------------------------*
+FORM SAVE_TO_DB  USING    P_TABNAME
+                 CHANGING P_SUBRC.
+
+  CHECK <FS_DYN_TABLE_DISP> IS ASSIGNED
+    AND <FS_DYN_TABLE>      IS ASSIGNED.
+
+  CLEAR <FS_DYN_TABLE>.
+
+  LOOP AT GT_SELECTED_ROW INTO DATA(LS_SELECTED_ROW).
+
+    READ TABLE <FS_DYN_TABLE_DISP> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA_DISP>) INDEX LS_SELECTED_ROW-INDEX.
+    CHECK SY-SUBRC = 0.
+
+    APPEND INITIAL LINE TO <FS_DYN_TABLE> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA>).
+    <FS_DYN_WA> = CORRESPONDING #( <FS_DYN_WA_DISP> ).
+
+    ZCL_COC_COMM=>SET_TIMESTAMP( EXPORTING IV_TYPE = 'A' CHANGING CS_WA = <FS_DYN_WA> ).
+
+  ENDLOOP.
+
+  CHECK <FS_DYN_TABLE> IS NOT INITIAL.
+
+  TRY.
+
+      MODIFY (P_TABNAME) FROM TABLE <FS_DYN_TABLE>.
+
+    CATCH CX_SY_OPEN_SQL_DB INTO DATA(LO_OREF).
+      MESSAGE LO_OREF->GET_LONGTEXT( ) TYPE 'I' DISPLAY LIKE 'E'.
+      P_SUBRC = 4.
+  ENDTRY.
+
+  IF P_SUBRC = 0.
+    COMMIT WORK.
+    MESSAGE S000 WITH |{ SY-DBCNT NUMBER = ENVIRONMENT }| TEXT-M03.
+
+    PERFORM SAVE_TO_LOG_TABLE TABLES <FS_DYN_TABLE>
+                              USING P_TABNAME
+                                    'U'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_TO_LOG_TABLE
+*&---------------------------------------------------------------------*
+FORM SAVE_TO_LOG_TABLE  TABLES   PT_DATA
+                        USING    P_TABNAME
+                                 P_MODE.
+
+  DATA: LS_ZCOCT008 TYPE ZCOCT008.
+
+  TRY.
+
+    GET TIME.
+
+    LS_ZCOCT008 = VALUE #( TABNAME = P_TABNAME
+                           BDATE   = SY-DATUM
+                           BTIME   = SY-UZEIT
+                           TSTMP   = CONV #( |{ CL_ABAP_TSTMP=>UTCLONG2TSTMP( UTCLONG_CURRENT( ) ) TIMEZONE = SY-ZONLO TIMESTAMP = (CL_ABAP_FORMAT=>TS_RAW) }| )
+                           BMODE   = P_MODE
+                           ERNAM   = SY-UNAME
+                           ERDAT   = SY-DATUM
+                           ERZET   = SY-UZEIT
+                           AENAM   = SY-UNAME
+                           AEDAT   = SY-DATUM
+                           AEZET   = SY-UZEIT ).
+  
+    CALL TRANSFORMATION ID
+          SOURCE TAB = PT_DATA[]
+          RESULT XML LS_ZCOCT008-DATA.
+
+    MODIFY ZCOCT008 FROM LS_ZCOCT008.
+    COMMIT WORK.
+
+    CATCH CX_ROOT INTO DATA(LO_ROOT).
+      MESSAGE S000 WITH LO_ROOT->GET_TEXT( ) DISPLAY LIKE 'E'.
+
+  ENDTRY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DELETE_FROM_DB
+*&---------------------------------------------------------------------*
+FORM DELETE_FROM_DB  USING    P_TABNAME
+                     CHANGING P_SUBRC.
+
+  CHECK <FS_DYN_TABLE_DISP> IS ASSIGNED
+    AND <FS_DYN_TABLE>      IS ASSIGNED.
+
+  CLEAR <FS_DYN_TABLE>.
+
+  LOOP AT GT_SELECTED_ROW INTO DATA(LS_SELECTED_ROW).
+
+    READ TABLE <FS_DYN_TABLE_DISP> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA_DISP>) INDEX LS_SELECTED_ROW-INDEX.
+    CHECK SY-SUBRC = 0.
+
+    APPEND INITIAL LINE TO <FS_DYN_TABLE> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA>).
+    <FS_DYN_WA> = CORRESPONDING #( <FS_DYN_WA_DISP> ).
+
+  ENDLOOP.
+
+  CHECK <FS_DYN_TABLE> IS NOT INITIAL.
+
+  TRY.
+
+      DELETE (P_TABNAME) FROM TABLE <FS_DYN_TABLE>.
+
+    CATCH CX_SY_OPEN_SQL_DB INTO DATA(LO_OREF).
+      MESSAGE LO_OREF->GET_LONGTEXT( ) TYPE 'I' DISPLAY LIKE 'E'.
+      P_SUBRC = 4.
+  ENDTRY.
+
+  IF P_SUBRC = 0.
+    COMMIT WORK.
+    MESSAGE S000 WITH |{ SY-DBCNT NUMBER = ENVIRONMENT }| TEXT-M06.
+
+    PERFORM SAVE_TO_LOG_TABLE TABLES <FS_DYN_TABLE>
+                              USING P_TABNAME
+                                    'D'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CONVERT_UPLOAD_DATA
+*&---------------------------------------------------------------------*
+FORM CONVERT_UPLOAD_DATA .
+
+  CLEAR <FS_DYN_TABLE_DISP>.
+
+  LOOP AT <FS_DYN_TABLE> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA>).
+
+    LOOP AT GR_ZALV2->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+      ASSIGN COMPONENT <FS_FDCAT>-FIELDNAME OF STRUCTURE <FS_DYN_WA> TO FIELD-SYMBOL(<FS_FIELD>).
+
+      IF <FS_FDCAT>-LOWERCASE IS INITIAL AND
+         <FS_FDCAT>-INTTYPE = C_C.
+        TRANSLATE <FS_FIELD> TO UPPER CASE.
+      ENDIF.
+
+      "CONVERSION EXIT
+      IF <FS_FDCAT>-CONVEXIT IS NOT INITIAL.
+        ZCL_COC_COMM=>CONVERSION_EXIT_VALUE( EXPORTING IV_INPUT        = <FS_FIELD>
+                                                       IV_CONVEXIT     = <FS_FDCAT>-CONVEXIT
+                                                       IV_CONVERT_TYPE = 'I'
+                                             IMPORTING EV_OUTPUT       = <FS_FIELD> ).
+      ENDIF.
+
+      "CURRENCY CONVERSION
+      IF <FS_FDCAT>-CFIELDNAME IS NOT INITIAL.
+        ASSIGN COMPONENT <FS_FDCAT>-CFIELDNAME OF STRUCTURE <FS_DYN_WA> TO FIELD-SYMBOL(<FS_CURR>).
+        <FS_FIELD> = CONV #( ZCL_COC_COMM=>CURRENCY_CONV_TO_INTERNAL( IV_CURR = <FS_CURR> IV_AMT_EXT = <FS_FIELD> ) ).
+      ENDIF.
+
+    ENDLOOP.
+
+    APPEND INITIAL LINE TO <FS_DYN_TABLE_DISP> ASSIGNING FIELD-SYMBOL(<FS_DYN_WA_DISP>).
+    <FS_DYN_WA_DISP> = CORRESPONDING #( <FS_DYN_WA> ).
+
+    "SET KEY FIELD
+    ASSIGN COMPONENT C_CELLTAB OF STRUCTURE <FS_DYN_WA_DISP> TO FIELD-SYMBOL(<FS_VALUE>).
+    <FS_VALUE> = GR_ZALV2->MT_CELLTAB.
+
+  ENDLOOP.
+
+  "LINE COUNT
+  DATA(L_COUNT) = LINES( <FS_DYN_TABLE_DISP> ).
+
+  IF L_COUNT = 0.
+    MESSAGE S000 WITH TEXT-M08 DISPLAY LIKE 'E'.
+  ELSE.
+    MESSAGE S000 WITH |{ L_COUNT NUMBER = ENVIRONMENT }| TEXT-M10.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALL_DATA
+*&---------------------------------------------------------------------*
+FORM DISPLAY_ALL_DATA USING PS_RESULT_100 TYPE TY_RESULT_100.
+
+  CLEAR GT_QUERY.  "전체 데이터 추출
+
+  PERFORM CREATE_DYNAMIC_TABLE USING PS_RESULT_100-TABNAME.
+  PERFORM MAKE_RIGHT_ALV USING PS_RESULT_100.
+  PERFORM DISPLAY_ALV USING 2.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  AT_SELECTION_SCREEN_OUTPUT
+*&---------------------------------------------------------------------*
+FORM AT_SELECTION_SCREEN_OUTPUT .
+
+  "화면 필드 속성 제어
+  PERFORM MODIFY_SCREEN_1000.
+
+ENDFORM.                    " AT_SELECTION_SCREEN_OUTPUT
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_SCREEN_1000
+*&---------------------------------------------------------------------*
+FORM MODIFY_SCREEN_1000 .
+
+  "Screen control
+	LOOP AT SCREEN.
+		
+		CASE SCREEN-GROUP1.
+		
+		 WHEN 'GR1'.
+		   IF P_COPY EQ ABAP_ON.
+		     SCREEN-ACTIVE = 0.
+		   ENDIF.
+		 
+		 WHEN 'GR2'.
+		   IF P_COPY NE ABAP_ON.
+		     SCREEN-ACTIVE = 0.
+		   ENDIF.
+		 
+	  ENDCASE.
+	
+	  MODIFY SCREEN.
+	
+  ENDLOOP.
+
+ENDFORM.                    " MODIFY_SCREEN_0100
+*&---------------------------------------------------------------------*
+*&      Form  START_OF_SELECTION
+*&---------------------------------------------------------------------*
+FORM START_OF_SELECTION .
+
+  IF P_COPY = ABAP_ON.
+  	PERFORM COPY_TABLE.
+  ELSE.
+  	PERFORM GET_DATA.
+  	PERFORM GEN_ALV.
+  	CALL SCREEN 0100.
+  ENDIF.
+
+ENDFORM.                    " START_OF_SELECTION
+*&---------------------------------------------------------------------*
+*&      Form  COPY_TABLE
+*&---------------------------------------------------------------------*
+FORM COPY_TABLE .
+
+  DATA: LO_DATA TYPE REF TO DATA.
+  	
+  FIELD-SYMBOLS: <LT_ITAB> TYPE TABLE.
+  
+  "테이블 입력 확인
+  IF S_TABNM IS INITIAL.
+  	MESSAGE S000 WITH TEXT-E01 DISPLAY LIKE 'E'.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+  
+  "RFC 목적지 입력 확인
+  IF P_RFCDES IS INITIAL.
+  	MESSAGE S000 WITH TEXT-E02 DISPLAY LIKE 'E'.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+  	
+  "RFC 목적지 정보 확인
+  SELECT SINGLE *
+  	FROM RFCDES
+  	INTO @DATA(LS_RFCDES)
+   WHERE RFCDEST = @P_RFCDES.
+   
+  IF SY-SUBRC <> 0.
+  	MESSAGE S000 WITH TEXT-E03 DISPLAY LIKE 'E'.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+  	
+  IF LS_RFCDES-RFCTYPE NE '3'.
+  	MESSAGE S000 WITH TEXT-E04 DISPLAY LIKE 'E'.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+  	
+  "RFC 목적지 확인
+  CALL FUNCTION 'RFC_CHECK_DESTINATION'
+    EXPORTING
+      MYDEST                  = LS_RFCDES-RFCDEST
+      MYTYPE                  = LS_RFCDES-RFCTYPE
+    EXCEPTIONS
+      EMPTY_DESTINATION             = 1
+      INVALID_LOGICAL_DESTINATION   = 2
+      DESTINATION_WITH_SPECIAL_CHAR = 3
+      INTERNAL_DESTINATION_ID       = 4
+      EMPTY_RFCTYPE                 = 5
+      OTHERS                        = 6.
+  IF SY-SUBRC <> 0.
+  	MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION       = CONV #( TEXT-N01 )
+  	                                 IV_DEFAULT_BUTTON = '1' ) NE '1'.
+  	EXIT.
+  ENDIF.
+  
+  "테이블 데이터 추출 후 저장
+  SELECT TABNAME AS TABNAME
+  	FROM DD02L
+   WHERE TABNAME IN @S_TABNM
+     AND ( TABNAME LIKE 'Y%' OR TABNAME LIKE 'Z%' )
+    INTO TABLE @DATA(LT_TABNM).
+    
+  IF LT_TABNM IS INITIAL.
+  	MESSAGE S000 WITH TEXT-E05 DISPLAY LIKE 'E'.
+  	LEAVE LIST-PROCESSING.
+  ENDIF.
+  	
+  LOOP AT LT_TABNM ASSIGNING FIELD-SYMBOL(<FS_TABNM>).
+  	
+  	"데이터 가져오기
+  	CREATE DATA LO_DATA TYPE TABLE OF (<FS_TABNM>-TABNAME).
+  	ASSIGN LO_DATA->* TO <LT_ITAB>.
+  	
+  	CALL FUNCTION 'ZCOCCM_GET_TABLE_DATA'
+  	  EXPORTING
+  	    I_TABNAME = <FS_TABNM>-TABNAME
+  	    I_RFCDEST = LS_RFCDES-RFCDEST
+  	  IMPORTING
+  	    ET_DATA   = <LT_ITAB>.
+  	    
+    "데이터 삭제 후 저장
+    DELETE FROM (<FS_TABNM>-TABNAME).
+    INSERT (<FS_TABNM>-TABNAME) FROM TABLE <LT_ITAB>.
+    
+  ENDLOOP.
+  
+  COMMIT WORK.
+  
+  MESSAGE S007.  
+  
+ENDFORM.                    " COPY_TABLE
+*&---------------------------------------------------------------------*
+*& Form CREATE_ALV
+*&---------------------------------------------------------------------*
+FORM CREATE_ALV USING PV_TAR.
+
+  PERFORM CREATE_OBJ_ALV USING PV_TAR.
+  PERFORM SET_LAYOUT     USING PV_TAR.
+  PERFORM SET_TOOLBAR    USING PV_TAR.
+  PERFORM SET_EVENT      USING PV_TAR.
+  PERFORM SET_FDCAT      USING PV_TAR.
+  PERFORM DISPLAY_ALV    USING PV_TAR.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form CREATE_OBJ_ALV
+*&---------------------------------------------------------------------*
+FORM CREATE_OBJ_ALV USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  "1. Main Dialogbox Container / Splitter
+  IF GR_ZALV1->MO_CUS_CON IS NOT BOUND.
+      GR_ZALV1->MO_CUS_CON = NEW #( CONTAINER_NAME = 'HEAD_CON' ).
+
+      GR_ZALV1->MO_SPLIT = NEW #( PARENT   = GR_ZALV1->MO_CUS_CON
+                                  ROWS     = 1
+                                  COLUMNS  = 2 ).
+
+      GR_ZALV1->MO_SPLIT->SET_COLUMN_WIDTH( ID = 1 WIDTH = 30 ).
+      GR_ZALV1->MO_SPLIT->SET_BORDER( BORDER = CL_GUI_CFW=>FALSE ).
+  ENDIF.
+
+  "2. Container
+  <FS_ALV>->MO_MAIN = GR_ZALV1->MO_SPLIT->GET_CONTAINER( ROW = 1 COLUMN = PV_TAR ).
+
+  <FS_ALV>->MO_HEADER1 = NEW #( PARENT_CONTAINER = <FS_ALV>->MO_MAIN
+                                COMPONENT        = VALUE #( ( RATIO    = '100'
+                                                              DESCRIPT = SWITCH #( PV_TAR WHEN 1 THEN TEXT-H01
+                                                                                        WHEN 2 THEN TEXT-H06 ) ) ) ).
+  <FS_ALV>->MO_HEADER1->GET_CONTAINER( IMPORTING CONTAINER1 = <FS_ALV>->MO_BODY ).
+
+  <FS_ALV>->MO_GRID = NEW #( I_PARENT = <FS_ALV>->MO_BODY ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SET_EVENT
+*&---------------------------------------------------------------------*
+FORM SET_EVENT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  IF GR_EVENT_HANDLER IS INITIAL.
+      CREATE OBJECT GR_EVENT_HANDLER.
+  ENDIF.
+
+  CASE PV_TAR.
+      WHEN 1.
+
+          <FS_ALV>->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_ENTER ).
+
+          SET HANDLER GR_EVENT_HANDLER->HANDLE_USER_COMMAND
+                      GR_EVENT_HANDLER->HANDLE_TOOLBAR
+                      GR_EVENT_HANDLER->HANDLE_HOTSPOT_CLICK
+                      GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK FOR <FS_ALV>->MO_GRID.
+
+      WHEN 2.
+
+          IF P_EDIT IS INITIAL.
+              <FS_ALV>->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_ENTER ).
+          ELSE.
+              <FS_ALV>->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_MODIFIED ).
+          ENDIF.
+
+          SET HANDLER GR_EVENT_HANDLER->HANDLE_USER_COMMAND
+                      GR_EVENT_HANDLER->HANDLE_TOOLBAR
+                      GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK FOR <FS_ALV>->MO_GRID.
+
+      WHEN 3.
+
+          <FS_ALV>->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_ENTER ).
+
+          SET HANDLER GR_EVENT_HANDLER->HANDLE_HOTSPOT_CLICK FOR <FS_ALV>->MO_GRID.
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SET_FDCAT
+*&---------------------------------------------------------------------*
+FORM SET_FDCAT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+  PERFORM ASSIGN_FS_TAB USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  
+  CASE PV_TAR.
+      WHEN 1.
+
+          <FS_ALV>->MAKE_FIELDCATALOG( IV_MODE = 'R' IT_TABLE = GT_RESULT_100 ).
+
+          LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+              CASE <FS_FDCAT>-FIELDNAME.
+                  WHEN 'ZMODULE'.
+                      <FS_FDCAT>-COLTEXT = TEXT-H04.
+                      <FS_FDCAT>-KEY     = ABAP_ON.
+                  WHEN 'TABNAME_TXT'.
+                      <FS_FDCAT>-COLTEXT = TEXT-H01.
+                      <FS_FDCAT>-KEY     = ABAP_ON.
+                  WHEN 'DATA_CNT'.
+                      <FS_FDCAT>-COLTEXT = TEXT-H02.
+                  WHEN 'FILTER'.
+                      <FS_FDCAT>-COLTEXT = TEXT-H05.
+                      <FS_FDCAT>-HOTSPOT = ABAP_ON.
+                      <FS_FDCAT>-JUST    = C_C.
+                  WHEN 'DISP_ALL'.
+                      <FS_FDCAT>-COLTEXT = TEXT-H06.
+                      <FS_FDCAT>-HOTSPOT = ABAP_ON.
+                      <FS_FDCAT>-JUST    = C_C.
+                  WHEN 'DISP_SEQ' OR 'BACKUP'.
+                      <FS_FDCAT>-NO_OUT  = ABAP_ON.
+              ENDCASE.
+
+              IF <FS_FDCAT>-COLTEXT IS NOT INITIAL.
+                  <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_L = 
+                  <FS_FDCAT>-SELTEXT   = <FS_FDCAT>-REPTEXT   = <FS_FDCAT>-COLTEXT.
+              ENDIF.
+
+          ENDLOOP.
+
+      WHEN 2.
+
+          "동적 테이블 만들면서 미리 생성
+
+      WHEN 3.
+      
+          <FS_ALV>->MAKE_FIELDCATALOG( IV_MODE = 'R' IT_TABLE = GT_FIELDLIST ).
+
+          LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING <FS_FDCAT>.
+
+              CASE <FS_FDCAT>-FIELDNAME.
+                  WHEN 'FIELDNAME'.
+                      <FS_FDCAT>-KEY     = ABAP_ON.
+                      <FS_FDCAT>-HOTSPOT = ABAP_ON.
+                  WHEN 'POSITION'.
+                      <FS_FDCAT>-KEY     = ABAP_ON.
+                      <FS_FDCAT>-COLTEXT = TEXT-H03.
+                  WHEN OTHERS.
+                      <FS_FDCAT>-KEY     = ABAP_OFF.
+              ENDCASE.
+
+              IF <FS_FDCAT>-COLTEXT IS NOT INITIAL.
+                  <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_L = 
+                  <FS_FDCAT>-SELTEXT   = <FS_FDCAT>-REPTEXT   = <FS_FDCAT>-COLTEXT.
+              ENDIF.
+
+          ENDLOOP.
+
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SET_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM SET_TOOLBAR USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  CASE PV_TAR.
+      WHEN 1.
+          <FS_ALV>->SET_TOOLBAR_STD( '3' ).
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form SET_LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_LAYOUT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+  
+  CASE PV_TAR.
+      WHEN 1.
+          <FS_ALV>->MS_LAYOUT = VALUE #( CWIDTH_OPT = 'X'
+                                         ZEBRA      = 'X'
+                                         SEL_MODE   = 'B' ).
+      WHEN 2.
+          <FS_ALV>->MS_LAYOUT = VALUE #( CWIDTH_OPT = 'X'
+                                         ZEBRA      = 'X'
+                                         SEL_MODE   = 'D'
+                                         STYLEFNAME = 'CELLTAB' ).
+      WHEN 3.
+          <FS_ALV>->MS_LAYOUT = VALUE #( CWIDTH_OPT = 'X'
+                                         ZEBRA      = 'X'
+                                         SEL_MODE   = 'D'
+                                         NO_TOOLBAR = 'X' ).
+  ENDCASE.
+
+  <FS_ALV>->MS_VARIANT = VALUE #( REPORT = SY-REPID
+                                  HANDLE = SWITCH #( PV_TAR WHEN 1 THEN 'A' WHEN 2 THEN 'B' WHEN 3 THEN 'C' ) ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM DISPLAY_ALV USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+  
+  PERFORM ASSIGN_FS_TAB USING PV_TAR.
+
+  CALL METHOD <FS_ALV>->MO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+  EXPORTING
+    IS_VARIANT                     = <FS_ALV>->MS_VARIANT
+    I_SAVE                         = <FS_ALV>->MV_VARIANT_SAVE
+    I_DEFAULT                      = ABAP_ON
+    IS_LAYOUT                      = <FS_ALV>->MS_LAYOUT
+    IT_TOOLBAR_EXCLUDING           = <FS_ALV>->MT_UI_FUNCTIONS
+  CHANGING
+    IT_OUTTAB                      = <FS_TAB>
+    IT_FIELDCATALOG                = <FS_ALV>->MT_FDCAT_LVC
+    IT_SORT                        = <FS_ALV>->MT_SORT
+  EXCEPTIONS  
+    INVALID_PARAMETER_COMBINATION  = 1
+    PROGRAM_ERROR                  = 2
+    TOO_MANY_LINES                 = 3
+    OTHERS                         = 4.
+    
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form ASSIGN_FS_ALV
+*&---------------------------------------------------------------------*
+FORM ASSIGN_FS_ALV USING PV_TAR.
+
+  UNASSIGN <FS_ALV>.
+  
+  DATA(LV_ALV) = |GR_ZALV{ PV_TAR }|.
+  ASSIGN (LV_ALV) TO <FS_ALV>.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form ASSIGN_FS_TAB
+*&---------------------------------------------------------------------*
+FORM ASSIGN_FS_TAB USING PV_TAR.
+
+  UNASSIGN <FS_TAB>.
+  
+  CASE PV_TAR.
+      WHEN 1.
+          DATA(LV_TAB) = |GT_RESULT_100|.
+      WHEN 2.
+          LV_TAB = |<FS_DYN_TABLE_DISP>|.
+      WHEN 3.
+          LV_TAB = |GT_FIELDLIST|.
+  ENDCASE.
+
+  ASSIGN (LV_TAB) TO <FS_TAB>.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_SQL
+*&---------------------------------------------------------------------*
+FORM UCOMM_SQL.
+
+  PERFORM GET_SELECTED_ROW USING    GR_ZALV1->MO_GRID
+                           CHANGING GV_SUBRC.
+
+  CHECK GV_SUBRC = 0.
+  
+  GS_RESULT_100 = VALUE #( GT_RESULT_100[ GT_SELECTED_ROW[ 1 ]-INDEX ] ).
+
+  CHECK SY-SUBRC = 0.
+
+  "GET PREVIOUS QUERY
+  PERFORM GET_PREVIOUS_SQL USING GS_RESULT_100-TABNAME.
+
+  "GET FIELD LIST
+  PERFORM GET_FIELD_LIST_RFC USING GS_RESULT_100-TABNAME.
+
+  "CALL QUERY SCREEN
+  PERFORM CLEAR_EDITOR.
+
+  CALL SCREEN 200 STARTING AT 15 3.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_SAVE
+*&---------------------------------------------------------------------*
+FORM UCOMM_SAVE.
+
+  PERFORM CHECK_VALID USING    GR_ZALV2->MO_GRID
+                      CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+  PERFORM GET_SELECTED_ROW USING    GR_ZALV2->MO_GRID
+                           CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+
+  IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_TITLE          = CONV #( TEXT-P01 )
+                                     IV_QUESTION       = CONV #( TEXT-P02 )
+                                     IV_DEFAULT_BUTTON = '1' ) NE '1'.
+      EXIT.
+  ENDIF.
+
+  PERFORM SAVE_TO_DB USING    GS_RESULT_100-TABNAME
+                     CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+  PERFORM REFRESH_RIGHT_DATA.
+  PERFORM REFRESH_LEFT_DATA.
+      
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_DELETE
+*&---------------------------------------------------------------------*
+FORM UCOMM_DELETE.
+
+  PERFORM CHECK_VALID USING    GR_ZALV2->MO_GRID
+                      CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+  PERFORM GET_SELECTED_ROW USING    GR_ZALV2->MO_GRID
+                           CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+
+  IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_TITLE          = CONV #( TEXT-P01 )
+                                     IV_QUESTION       = CONV #( TEXT-P03 )
+                                     IV_DEFAULT_BUTTON = '1' ) NE '1'.
+      EXIT.
+  ENDIF.
+
+  PERFORM DELETE_FROM_DB USING    GS_RESULT_100-TABNAME
+                         CHANGING GV_SUBRC.
+  CHECK GV_SUBRC = 0.
+  PERFORM REFRESH_RIGHT_DATA.
+  PERFORM REFRESH_LEFT_DATA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_EXPORT
+*&---------------------------------------------------------------------*
+FORM UCOMM_EXPORT.
+
+  CHECK GS_RESULT_100-TABNAME IS NOT INITIAL.
+
+  <FS_DYN_TABLE_DOWN> = CORRESPONDING #( <FS_DYN_TABLE_DISP> ).
+
+  "DOWNLOAD
+  ZCL_COC_COMM=>XXL_DOWNLOAD( IS_HEADER_STR = SPACE
+                              IT_FDCAT      = GR_ZALV2->MT_FDCAT_LVC
+                              IV_FILENAME   = CONDENSE( GS_RESULT_100-TABNAME && '_' && SY-DATLO && TEXT-005 )
+                              IT_DATA       = <FS_DYN_TABLE_DOWN> ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form UCOMM_IMPORT
+*&---------------------------------------------------------------------*
+FORM UCOMM_IMPORT.
+
+  CLEAR: <FS_DYN_TABLE>.
+
+  "EXCEL UPLOAD
+  DATA(LT_RETURN) = ZCL_COC_COMM=>XXL_UPLOAD( EXPORTING IV_FILENAME = SPACE
+                                              IMPORTING ET_TAB_CONVERTED_DATA = <FS_DYN_TABLE> ).
+
+  "에러 있을 경우, 메세지 처리 후 나감
+  IF LT_RETURN IS NOT INITIAL.
+      ZCL_COC_COMM=>SHOW_BAPI_MESSAGE( LT_RETURN ).
+      EXIT.
+  ENDIF.
+
+  PERFORM CONVERT_UPLOAD_DATA.
+  PERFORM DISPLAY_ALV USING 2.
+
+ENDFORM.

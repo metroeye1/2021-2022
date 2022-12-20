@@ -1,0 +1,1996 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZRPTCO0010F01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  INITIALIZATION
+*&---------------------------------------------------------------------*
+FORM INITIALIZATION .
+
+  GR_ZAVL1 = NEW #( ).
+  GR_ZAVL2 = NEW #( ).
+  GR_ZAVL3 = NEW #( ).
+
+  "최초 조회 모드로 설정
+  GV_MODE1 = C_DISP.
+  GV_MODE2 = C_DISP.
+
+  "SET TITLE
+  GV_TITLE = ZCL_COC_UTIL=>GET_TITLE( SY-CPROG ).
+
+  "색상 필드 사용 클래스
+  " GR_COL_CLASS[] = VALUE #( ( SIGN = 'I' OPTION = 'EQ' LOW = 'A07' )    "렌탈 손익조견표-항목양식
+  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'A32' )    "일시불 손익조견표-항목양식
+  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'B13' ) ). "타계정 입출고 레포트 - 동적 필드
+  SELECT 'I' AS SIGN, 'EQ' AS OPTION, FIELD05 AS LOW FROM ZTCO2002
+   WHERE ZMODULE = 'CO' AND CLASS = 'Z00'
+    INTO CORRESPONDING FIELDS OF TABLE @GR_COL_CLASS.
+  IF SY-SUBRC <> 0. 
+    GR_COL_CLASS[] = VALUE #( ( SIGN = 'I' OPTION = 'EQ' LOW = 'NOT FOUND' ) ).
+  ENDIF.
+
+ENDFORM.                    " INITIALIZATION
+*&---------------------------------------------------------------------*
+*&      Form  START_OF_SELECTION
+*&---------------------------------------------------------------------*
+FORM START_OF_SELECTION .
+
+  CASE ABAP_ON.
+  	WHEN P_INP.
+  	
+		  "코드 마스터 데이터 읽어오기
+		  PERFORM GET_DATA.
+
+		  "ALV 데이터 가공
+		  PERFORM GEN_ALV USING 1.
+
+		  "Call screen
+		  CALL SCREEN 0100.
+		  
+		WHEN P_RFC.
+		
+		  "SOURCE RFC 목적지로부터 데이터 가져와서 저장
+		  PERFORM GET_SAVE_DATA_FROM_RFC_DEST.
+		  
+  ENDCASE.
+
+ENDFORM.                    " START_OF_SELECTION
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+FORM GET_DATA .
+
+  "Read data
+  SELECT *
+    FROM ZTCO2000
+   WHERE ZMODULE IN @S_ZMODU
+     AND CLASS   IN @S_CLASS
+    INTO CORRESPONDING FIELDS OF TABLE @GT_2000.
+
+  SELECT *
+    FROM ZTCO2001
+   WHERE ZMODULE IN @S_ZMODU
+     AND CLASS   IN @S_CLASS
+    INTO CORRESPONDING FIELDS OF TABLE @GT_2001.
+
+  SELECT *
+    FROM ZTCO2002
+   WHERE ZMODULE IN @S_ZMODU
+     AND CLASS   IN @S_CLASS
+    INTO CORRESPONDING FIELDS OF TABLE @GT_2002.
+
+ENDFORM.                    " GET_DATA
+*&---------------------------------------------------------------------*
+*&      Form  SET_CELLTAB
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM SET_CELLTAB  USING   PV_TAR.
+
+  CASE PV_TAR.
+
+    WHEN 1.
+      MODIFY GT_ALV1 FROM VALUE #( CELLTAB = VALUE #( ( FIELDNAME = 'ZMODULE' STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED )
+                                                        FIELDNAME = 'CLASS'   STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) ) ) TRANSPORTING CELLTAB WHERE SAVED = ABAP_TRUE.
+    WHEN 3.
+      MODIFY GT_ALV3 FROM VALUE #( CELLTAB = VALUE #( FOR LS_001 IN GT_2001 WHERE ( ZMODULE = GV_ZMODULE AND CLASS = GV_CLASS AND ZKEY = C_X ) )
+                                                      ( FIELDNAME = LS-001-FIELDS STYLE = CL_GUI_ALV_GRID=>MC_STYLE_DISABLED ) ) ) TRANSPORTING CELLTAB WHERE SAVED = ABAP_TRUE.
+      IF GV_CLASS IN GR_COL_CLASS.
+        LOOP AT GT_ALV3 ASSIGNING FIELD-SYMBOL(<FS_ALV3>) WHERE FIELD06 IS NOT INITIAL.
+          ASSIGN COMPONENT 'COLINFO' OF STRUCTURE <FS_ALV3> TO FIEL-SIMBOL(<FS_COLINFO>).
+          <FS_COLINFO> = VALUE LVC_T_SCOL( ( FNAME = 'FIELD06' COLOR = VALUE #( COL = <FS_ALV3>-FIELD06+1(1)
+                                                                                INT = <FS_ALV3>-FIELD06+2(1)
+                                                                                INV = <FS_ALV3>-FIELD06+3(1) ) ) ).
+        ENDLOOP.
+      ENDIF.
+  ENDCASE.
+
+ENDFORM.                    " SET_CELLTAB
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM HANDLE_TOOLBAR  USING SENDER
+                           P_OBJECT TYPE  REF TO CL_ALV_EVENT_TOOLBAR_SET
+                           P_INTERACTIVE.
+
+  CASE SENDER.
+    WHEN GR_ZALV1->MO_GRID.
+      CASE GV_MODE1.
+
+        WHEN C_DISP.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&FLD' ICON = ICON_CHOOSE_COLUMNS BUTN_TYPE = '' TEXT = TEXT-B01 QUICKINFO = TEXT-B01 )
+                                            ( FUNCTION = '&CHG' ICON = ICON_CHANGE         BUTN_TYPE = '' TEXT = TEXT-B02 QUICKINFO = TEXT-B02 ) ).
+        WHEN C_CHNG.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&FLD' ICON = ICON_CHOOSE_COLUMNS BUTN_TYPE = '' TEXT = TEXT-B01 QUICKINFO = TEXT-B01 )
+                                            ( FUNCTION = '&DIS' ICON = ICON_DISPLAY        BUTN_TYPE = '' TEXT = TEXT-B03 QUICKINFO = TEXT-B03 )
+                                            ( FUNCTION = '&INS' ICON = ICON_INSERT_ROW     BUTN_TYPE = '' TEXT = TEXT-B04 QUICKINFO = TEXT-B04 )
+                                            ( FUNCTION = '&DEL' ICON = ICON_DELETE_ROW     BUTN_TYPE = '' TEXT = TEXT-B05 QUICKINFO = TEXT-B05 )
+                                            ( FUNCTION = '&SAV' ICON = ICON_SYSTEM_SAVE    BUTN_TYPE = '' TEXT = TEXT-B06 QUICKINFO = TEXT-B06 )
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&TRC' ICON = ICON_DELETE_ROW     BUTN_TYPE = '' TEXT = TEXT-B07 QUICKINFO = TEXT-B07 ) ).
+      ENDCASE.
+
+    WHEN GR_ZALV2->MO_GRID.
+
+      CASE GV_MODE2.
+
+        WHEN C_DISP.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&CHG' ICON = ICON_CHANGE         BUTN_TYPE = '' TEXT = TEXT-B02 QUICKINFO = TEXT-B02 ) ).
+        WHEN C_CHNG.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&DIS' ICON = ICON_DISPLAY        BUTN_TYPE = '' TEXT = TEXT-B03 QUICKINFO = TEXT-B03 )
+                                            ( FUNCTION = '&SAV' ICON = ICON_SYSTEM_SAVE    BUTN_TYPE = '' TEXT = TEXT-B06 QUICKINFO = TEXT-B06 ) ).
+      ENDCASE.
+
+    WHEN GR_ZALV3->MO_GRID.
+
+      CASE GV_MODE3.
+
+        WHEN C_DISP.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&LBL' ICON = ICON_BW_APD         BUTN_TYPE = '' TEXT = TEXT-B08 QUICKINFO = TEXT-B08 )
+                                            ( FUNCTION = '&CHG' ICON = ICON_CHANGE         BUTN_TYPE = '' TEXT = TEXT-B02 QUICKINFO = TEXT-B02 ) ).
+        WHEN C_CHNG.
+
+          P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                                            ( FUNCTION = ''     ICON = ''                  BUTN_TYPE = 3  TEXT = ''       QUICKINFO = '' )
+                                            ( FUNCTION = '&LBL' ICON = ICON_BW_APD         BUTN_TYPE = '' TEXT = TEXT-B08 QUICKINFO = TEXT-B08 )
+                                            ( FUNCTION = '&DIS' ICON = ICON_DISPLAY        BUTN_TYPE = '' TEXT = TEXT-B03 QUICKINFO = TEXT-B03 )
+                                            ( FUNCTION = '&INS' ICON = ICON_INSERT_ROW     BUTN_TYPE = '' TEXT = TEXT-B04 QUICKINFO = TEXT-B04 )
+                                            ( FUNCTION = '&DEL' ICON = ICON_DELETE_ROW     BUTN_TYPE = '' TEXT = TEXT-B05 QUICKINFO = TEXT-B05 )
+                                            ( FUNCTION = '&SAV' ICON = ICON_SYSTEM_SAVE    BUTN_TYPE = '' TEXT = TEXT-B06 QUICKINFO = TEXT-B06 ) ).
+      ENDCASE.
+
+  ENDCASE.
+
+ENDFORM.                    " HANDLE_TOOLBAR
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_USER_COMMAND
+*&---------------------------------------------------------------------*
+FORM HANDLE_USER_COMMAND  USING   SENDER
+                                  P_UCOMM.
+
+  CASE SENDER.
+    WHEN GR_ZALV1->MO_GRID.
+
+      CASE P_UCOMM.
+
+        WHEN '&CHG'.   "Change
+          PERFORM SET_MODE_ALV USING 1 ZCOC_E.
+
+        WHEN '&DIS'.   "Display
+          PERFORM SET_MODE_ALV USING 1 ZCOC_D.
+
+        WHEN '&INS'.   "Insert
+          PERFORM INSERT_ROW.
+
+        WHEN '&DEL'.   "Delete
+          PERFORM DELETE_ROW.
+
+        WHEN '&SAV'.   "Save
+          PERFORM SAVE_ROW1.
+
+        WHEN '&FLD' OR '&DDD'.
+*          PERFORM SET_CLASS_FIELDS.
+          PERFORM SET_CLASS_FIELDS2.
+
+        WHEN '&TRC'.   "DB Delete for admin
+          PERFORM TRUNCATE_ROW.
+
+      ENDCASE.
+
+    WHEN GR_ZALV2->MO_GRID.
+
+      CASE P_UCOMM.
+
+        WHEN '&CHG'.   "Change
+          PERFORM SET_MODE_ALV USING 2 ZCOC_E.
+
+        WHEN '&DIS'.   "Display
+          PERFORM SET_MODE_ALV USING 2 ZCOC_D.
+
+        WHEN '&SAV'.   "Save
+          PERFORM SAVE_ROW2.
+
+      ENDCASE.
+
+    WHEN GR_ZALV3->MO_GRID.
+
+      CASE P_UCOMM.
+
+        WHEN '&CHG'.   "Change
+          PERFORM SET_MODE_ALV USING 3 ZCOC_E.
+
+        WHEN '&DIS'.   "Display
+          PERFORM SET_MODE_ALV USING 3 ZCOC_D.
+
+        WHEN '&INS'.   "Insert
+          PERFORM INSERT_ROW3.
+
+        WHEN '&DEL'.   "Delete
+          PERFORM DELETE_ROW3.
+
+        WHEN '&SAV'.   "Save
+          PERFORM SAVE_ROW3.
+
+        WHEN '&LBL'.   "필드 라벨 변경
+          PERFORM SAVE_ROW3.
+
+      ENDCASE.
+
+    ENDCASE.
+
+ENDFORM.                    " HANDLE_USER_COMMAND
+*&---------------------------------------------------------------------*
+*&      Form  INSERT_ROW
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM INSERT_ROW .
+
+  GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LT_ROW IS INITIAL.
+    APPEND INITIAL LINE TO GT_ALV1.
+  ELSE.
+
+    IF LINE_EXISTS( LT_ROW[ 1 ] ).
+      INSERT INITIAL LINE INTO GT_ALV1 INDEX LT_ROW[ 1 ]-INDEX.
+    ENDIF.
+
+  ENDIF.
+
+  GR_ZALV1->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+  GR_ZALV1->MO_GRID->SET_SELECTED_ROWS( IT_INDEX_ROWS = VALUE #( FOR LS_ROW IN LT_ROW ( INDEX = LS_ROW-INDEX + 1 ) ) ).
+  
+ENDFORM.                    " INSERT_ROW
+*&---------------------------------------------------------------------*
+*&      Form  INSERT_ROW3
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM INSERT_ROW3 .
+
+  GR_ZALV3->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LT_ROW IS INITIAL.
+    APPEND VALUE TY_ALV3( ZMODULE = GV_ZMODULE CLASS = GV_CLASS ) TO GT_ALV3.
+  ELSE.
+
+    IF LINE_EXISTS( LT_ROW[ 1 ] ).
+      INSERT VALUE TY_ALV3( ZMODULE = GV_ZMODULE CLASS = GV_CLASS ) INTO GT_ALV3 INDEX LT_ROW[ 1 ]-INDEX.
+    ENDIF.
+
+  ENDIF.
+
+  GR_ZALV3->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.                    " INSERT_ROW3
+*&---------------------------------------------------------------------*
+*&      Form  DELETE_ROW
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM DELETE_ROW .
+
+  GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LT_ROW IS INITIAL.
+    MESSAGE I000 WITH '삭제할 행을 먼저 선택해 주세요.' DISPLAY LIKE ZCOC_E. EXIT.
+  ELSE.
+
+    SORT LT_ROW BY INDEX DESCENDING.
+    
+    "CHECK TO DELETE SAVED DATA
+    LOOP AT LT_ROW INTO DATA(LS_ROW).
+      ASSIGN GT_ALV1[ LS_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+      IF SY-SUBRC = 0 AND 
+         <FS_ALV1>-SAVED = ZCOC_X.
+         MESSAGE I000(0K) WITH TEXT-703. EXIT.
+      ENDIF.
+    ENDLOOP.
+
+    LOOP AT LT_ROW INTO LS_ROW.
+      ASSIGN GT_ALV1[ LS_ROW-INDEX ] TO <FS_ALV1>.
+      IF SY-SUBRC = 0 AND 
+         <FS_ALV1>-SAVED IS INITIAL.
+         DELETE GT_ALV1 INDEX LS_ROW-INDEX.
+      ENDIF.
+    ENDLOOP.
+
+  ENDIF.
+
+  GR_ZALV1->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.                    " DELETE_ROW
+*&---------------------------------------------------------------------*
+*&      Form  DELETE_ROW3
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM DELETE_ROW3 .
+
+  GR_ZALV3->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LT_ROW IS INITIAL.
+    MESSAGE I000 WITH '삭제할 행을 먼저 선택해 주세요.' DISPLAY LIKE ZCOC_E. EXIT.
+  ELSE.
+
+    SORT LT_ROW BY INDEX DESCENDING.
+    
+    LOOP AT LT_ROW INTO DATA(LS_ROW).
+      IF LINE_EXISTS( GT_ALV3[ LS_ROW-INDEX ] ).
+        DELETE GT_ALV3 INDEX LS_ROW-INDEX.
+      ENDIF.
+    ENDLOOP.
+
+  ENDIF.
+
+  GR_ZALV3->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.                    " DELETE_ROW3
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_ROW1
+*&---------------------------------------------------------------------*
+FORM SAVE_ROW1 .
+
+  DATA: LT_2000  LIKE TABLE OF ZTCO2000,
+        LV_DUP   TYPE C,
+        LV_EXIST TYPE C.
+
+  PERFORM CHECK_CHANGED_DATA USING 1.
+
+  "Check already existing code
+  PERFORM CHECK_EXISTENCE CHANGING LV_EXIST.
+
+  CHECK LV_EXIST EQ SPACE.
+
+  "Check duplicated
+  PERFORM CHECK_DUPLICATED CHANGING LV_DUP.
+
+  CHECK LV_DUP EQ SPACE.
+
+  LOOP AT GT_ALV1 ASSIGNING FIELD-SYMBOL(<FS_ALV1>) WHERE ZMODULE IS NOT INITIAL
+                                                      AND CLASS   IS NOT INITIAL.
+    APPEND INITIAL LINE TO LT_2000 ASSIGNING FIELD-SYMBOL(<FS_2000>).                                                        
+    <FS_2000> = CORRESPONDING #( <FS_ALV1> ).
+
+    ASSIGN GT_2000[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] TO FIELD-SYMBOL( <FS_OLD> ).
+    IF SY-SUBRC = 0.
+      "update
+      <FS_2000> = VALUE #( BASE <FS_2000> ERDAT = <FS_OLD>-ERDAT
+                                          ERZET = <FS_OLD>-ERZET
+                                          ERNAM = <FS_OLD>-ERNAM
+                                          AEDAT = SY-DATUM
+                                          AEZET = SY-UZEIT
+                                          AENAM = SY-UNAME ).
+    ELSE.
+      "create
+      <FS_2000> = VALUE #( BASE <FS_2000> ERDAT = SY-DATUM
+                                          ERZET = SY-UZEIT
+                                          ERNAM = SY-UNAME ).
+    ENDIF.
+
+  ENDLOOP.
+
+  MODIFY ZTCO2000 FROM TABLE LT_2000.
+
+  COMMIT WORK.
+
+  "clear changed flag
+  MODIFY GT_ALV1 FROM VALUE #( CHANGED = '' ) TRANSPORTING CHANGED WHERE CHANGED = C_X.
+
+  GV_MODE1 = C_DISP.
+  PERFORM SHOW_ALV USING 1.
+
+  MESSAGE S000 WITH '실행이 성공적으로 완료됐습니다.'.
+
+ENDFORM.                    " SAVE_ROW1
+*&---------------------------------------------------------------------*
+*&      Form  REFRESH_ALV
+*&---------------------------------------------------------------------*
+FORM REFRESH_ALV USING PV_TAR .
+
+  PERFORM SET_FDCAT   USING PV_TAR.
+  PERFORM SET_CELLTAB USING PV_TAR.
+  PERFORM SET_READY_FOR_INPUT USING PV_TAR.
+
+  <FS_ALV>->REFRESH_ALV( EXPORTING IV_OPTA = SWITCH #( PV_TAR WHEN 3 THEN 'X' ELSE '' )
+                                   IS_STBL = VALUE #( ROW = ABAP_ON COL = ABAP_ON )
+                                   IS_LAYO = <FS_ALV>->MS_LAYO
+                                   IT_FCAT = <FS_ALV>->MT_FDCAT_LVC
+                         CHANGING  IO_GRID = <FS_ALV>->MO_GRID ).
+
+ENDFORM.                    " REFRESH_ALV1
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_ROW2
+*&---------------------------------------------------------------------*
+FORM SAVE_ROW2 .
+
+  DATA: LT_2001 LIKE TABLE OF ZTCO2001.
+
+  PERFORM CHECK_CHANGED_DATA USING 2.
+
+  LOOP AT GT_ALV2 ASSIGNING FIELD-SYMBOL(<FS_ALV2>).
+
+    APPEND INITIAL LINE TO LT_2001 ASSIGNING FIELD-SYMBOL(<FS_2001>).
+    <FS_2001> = CORRESPONDING #( <FS_ALV2> ).
+
+    ASSIGN GT_2001[ ZMODULE = <FS_ALV2>-ZMODULE CLASS = <FS_ALV2>-CLASS ] TO FIELD-SYMBOL( <FS_OLD> ).
+    IF SY-SUBRC = 0.
+      "update
+      <FS_2001> = VALUE #( BASE <FS_2001> ERDAT = <FS_OLD>-ERDAT
+                                          ERZET = <FS_OLD>-ERZET
+                                          ERNAM = <FS_OLD>-ERNAM
+                                          AEDAT = SY-DATUM
+                                          AEZET = SY-UZEIT
+                                          AENAM = SY-UNAME ).
+    ELSE.
+      "create
+      <FS_2001> = VALUE #( BASE <FS_2001> ERDAT = SY-DATUM
+                                          ERZET = SY-UZEIT
+                                          ERNAM = SY-UNAME ).
+    ENDIF.
+
+  ENDLOOP.
+
+  MODIFY ZTCO2001 FROM TABLE LT_2001.
+
+  COMMIT WORK.
+
+  "show alv2
+  GV_MODE2 = C_DISP.
+*  PERFORM SHOW_ALV USING 2.
+
+  "show alv3
+  GV_MODE3 = C_DISP.
+  PERFORM SHOW_ALV USING 3.
+
+  MESSAGE S000 WITH '실행이 성공적으로 완료됐습니다.'.
+
+  LEAVE TO SCREEN 0.
+
+ENDFORM.                    " SAVE_ROW2
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_ROW3
+*&---------------------------------------------------------------------*
+FORM SAVE_ROW3 .
+
+  DATA: LT_2002  LIKE TABLE OF ZTCO2002,
+        LV_SEQNO LIKE ZTCO2002-SEQNO,.
+
+  PERFORM CHECK_CHANGED_DATA USING 3.
+
+  LOOP AT GT_ALV3 ASSIGNING FIELD-SYMBOL(<FS_ALV3>) WHERE ZMODULE IS NOT INITIAL
+                                                      AND CLASS   IS NOT INITIAL.
+
+    "skip all fields are blank
+    DATA(LV_SAVE) = SPACE.      
+    LOOP AT GT_2001 INTO DATA(LS_2001) WHERE ZMODULE = <FS_ALV3>-ZMODULE
+                                         AND CLASS   = <FS_ALV3>-CLASS
+                                         AND ZUSAGE  = C_X.
+
+      ASSIGN COMPONENT LS_2001-FIELDS OF STRUCTURE <FS_ALV3> TO FIELD-SYMBOL(<FS_COMP>).
+
+      IF <FS_COMP> IS NOT INITIAL.
+        LV_SAVE = C_X.
+        EXIT.
+      ENDIF.
+
+    ENDLOOP.
+
+    CHECK LV_SAVE EQ C_X.
+
+    "키 필드 중복 체크
+    DATA(LV_DESC)  = |{ SPACE }|.
+    DATA(LV_WHERE) = `ZMODULE = ` && '''' && <FS_ALV3>-ZMODULE && '''' && ` AND ` &&
+                     `CLASS = `   && '''' && <FS_ALV3>-CLASS && ''''.
+
+    LOOP AT GT_2001 INTO LS_2001 WHERE ZMODULE = <FS_ALV3>-ZMODULE
+                                   AND CLASS   = <FS_ALV3>-CLASS
+                                   AND ZUSAGE  = C_X
+                                   AND ZKEY    = C_X.
+      ASSIGN COMPONENT GT_2001-FIELDS OF STRUCTURE GS_ALV3 TO <FS_COMP>.
+      LV_WHERE = LV_WHERE && ` AND ` && GT_2001-FIELDS && ` = ` && '''' &&  <FS_COMP> && ''''.
+      LV_DESC  = LV_DESC && ` - ` && GT_2001-FLDDESC && ` = ` && '''' &&  <FS_COMP> && ''''.
+    ENDLOOP.
+
+    DATA(LV_CNT) = 0.
+    LOOP AT GT_ALV3 TRANSPORTING NO FIELDS WHERE (LV_WHERE).
+      LV_CNT = LV_CNT + 1.
+    ENDLOOP.
+
+    IF LV_CNT > 1.
+      MESSAGE I000 WITH '키 데이터 중복' LV_DESC DISPLAY LIKE 'E'.
+      DATA(LV_ERROR) = C_X.
+      EXIT.
+    ENDIF.
+
+    APPEND INITIAL LINE TO LT_2002 ASSIGNING FIELD-SYMBOL(<FS_2002>).
+    <FS_2002> = CORRESPONDING #(<FS_ALV3>).
+
+    LV_SEQNO += 1.
+    <FS_2002>-SEQNO = LV_SEQNO.
+
+    ASSIGN GT_2002[ ZMODULE = <FS_ALV3>-ZMODULE CLASS = <FS_ALV3>-CLASS ] TO FIELD-SYMBOL( <FS_OLD> ).
+    IF SY-SUBRC = 0.
+      "update
+      <FS_2002> = VALUE #( BASE <FS_2002> ERDAT = <FS_OLD>-ERDAT
+                                          ERZET = <FS_OLD>-ERZET
+                                          ERNAM = <FS_OLD>-ERNAM
+                                          AEDAT = SY-DATUM
+                                          AEZET = SY-UZEIT
+                                          AENAM = SY-UNAME ).
+    ELSE.
+      "create
+      <FS_2002> = VALUE #( BASE <FS_2002> ERDAT = SY-DATUM
+                                          ERZET = SY-UZEIT
+                                          ERNAM = SY-UNAME ).
+    ENDIF.
+
+    CLEAR: LV_WHERE.
+
+  ENDLOOP.
+
+  CHECK LV_ERROR IS INITIAL.
+
+  DELETE FROM ZTCO2002 WHERE ZMODULE = GV_ZMODULE
+                         AND CLASS   = GV_CLASS.
+
+  MODIFY ZTCO2002 FROM TABLE LT_2002.
+
+  COMMIT WORK.
+
+  GV_MODE3 = C_DISP.
+  PERFORM SHOW_ALV USING 3.
+
+  MESSAGE S000 WITH '실행이 성공적으로 완료됐습니다.'.
+
+ENDFORM.                    " SAVE_ROW3
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_DOUBLE_CLICK  USING  SENDER
+                                 P_ROW     TYPE LVC_S_ROW
+                                 P_COLUMN  TYPE LVC_S_COL
+                                 P_ROW_NO  TYPE LVC_S_ROID.
+
+  DATA: LV_CHANGED3 TYPE C,
+        LV_SET      TYPE C.
+
+  ASSIGN GT_ALV1[ P_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+  CHECK SY-SUBRC = 0.
+
+  GR_ZALV1->MO_GIRD->SET_SELECTED_ROWS( IT_INDEX_ROWS = VAUE #( ( P_ROW ) ) ).
+
+  IF <FS_ALV1>-ZMODULE IS INITIAL.
+    MESSAGE I000(0K) WITH TEXT-101 DISPLAY LIKE C_E. EXIT.
+  ENDIF.
+
+  IF <FS_ALV1>-CLASS IS INITIAL.
+    MESSAGE I000(0K) WITH TEXT-102 DISPLAY LIKE C_E. EXIT.
+  ENDIF.
+
+  IF NOT LINE_EXISTS( GT_ALV1[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] ).
+    MESSAGE I000(0K) WITH TEXT-103 DISPLAY LIKE C_E. EXIT.
+  ENDIF.
+
+  "check changed
+  PERFORM CHECK_CHANGED USING 3 CHANGING LV_CHANGED3.
+
+  IF LV_CHANGED3 = C_X.
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-804 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE C_E. EXIT.
+    ENDIF.
+  ENDIF.
+
+  GV_ZMODULE = <FS_ALV1>-ZMODULE.
+  GV_CLASS   = <FS_ALV1>-CLASS.
+
+  "Popup 0110 screen, if no setting for fields.
+  "but show alv3 for data.
+  PERFORM CHECK_SETTING_FIELDS CHANGING LV_SET.
+
+  IF LV_SET = C_X.
+
+    "show alv3
+    GV_MODE3 = C_DISP.
+    
+    "탐색도움말 필드 등록
+    DATA: LT_LVC_T_F4 TYPE LVC_T_F4.
+    IF GV_CLASS IN GR_COL_CLASS.
+    	GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( VALUE #( ( FIELDNAME = 'FIELD06' REGISTER = ABAP_TRUE ) ) ).
+    ELSE.
+    	CLEAR LT_LVC_T_F4.
+    	GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( LT_LVC_T_F4 ).
+    ENDIF.
+    
+    PERFORM SHOW_ALV USING 3.
+
+  ELSE.
+
+    MESSAGE I000(0K) WITH TEXT-704.
+
+    PERFORM GEN_ALV USING 2.
+
+    CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+
+    PERFORM SHOW_ALV USING 3.
+
+  ENDIF.
+
+  "BAR TITLE
+  GR_ZALV3->MO_HEADER1->SET_TITLE( ID = 1 TITLE = CONV #( |{ TEXT-303 } - { <FS_ALV1>-CLSDESC } [{ LINES( GT_ALV3 ) NUMBER = ENVIRONMENT }건]| ) ).
+
+ENDFORM.                    " HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+*&      Form  GEN_ALV
+*&---------------------------------------------------------------------*
+FORM GEN_ALV USING PV_TAR .
+
+  CASE PV_TAR.
+    
+    WHEN 1.
+
+      SELECT A~*,
+             @ABAP_TRUE AS SAVED
+        FROM @GT_2000 AS A
+       ORDER BY A~ZMODULE, A~CLASS
+        INTO CORRESPONDING FIELDS OF TABLE @GT_ALV1.
+
+    WHEN 2.
+
+      SELECT A~DATATYPE AS DATATYPE,
+             A~LENG     AS LENG,
+             A~DECIMALS AS DECIMALS,
+             B~*,
+             CASE WHEN B~FIELDS  IS NULL THEN A~FIELDNAME ELSE B~FIELDS  END AS FIELDS,
+             CASE WHEN B~ZMODULE IS NULL THEN @GV_ZMODULE ELSE B~ZMODULE END AS ZMODULE,
+             CASE WHEN B~CLASS   IS NULL THEN @GV_CLASS   ELSE B~CLASS   END AS CLASS
+        FROM DD03L AS A
+        LEFT JOIN ztco2001 AS B ON B~ZMODULE = @GV_ZMODULE 
+                               AND B~CLASS   = @GV_CLASS
+                               AND B~FIELDS  = A~FIELDNAME
+       WHERE A~TABNAME   EQ   'ZTCO2002'
+         AND A~FIELDNAME LIKE 'FIELD%'
+        INTO CORRESPONDING FIELDS OF TABLE @GT_ALV2.
+
+    WHEN 3.
+
+      SELECT A~*,
+             @ABAP_TRUE AS SAVED
+        FROM @GT_2002 AS A
+       WHERE A~ZMODULE = @GV_ZMODULE
+         AND A~CLASS   = @GV_CLASS
+        INTO CORRESPONDING FIELDS OF TABLE @GT_ALV3.
+
+      CHECK GT_ALV3 IS NOT INITIAL.
+
+      "SORT BY ORDER OR KEY
+      SORT GT_2001 BY ZMODULE CLASS ZSORT.
+      DATA(LT_ORDER) = VALUE ABAP_SORTORDER_TAB( FOR LS_2001 IN GT_2001 WHERE ( ZMODULE = GV_ZMODULE AND CLASS = GV_CLASS AND ZSORT <> '' )
+                                                 ( NAME = LS_2001-FIELDS ) ).
+      IF LT_ORDER IS INITIAL.
+        SORT GT_2001 BY ZMODULE CLASS COL_POS.
+        LT_ORDER = VALUE ABAP_SORTORDER_TAB( FOR LS_2001 IN GT_2001 WHERE ( ZMODULE = GV_ZMODULE AND CLASS = GV_CLASS AND ZKEY = ZCOC_X )
+                                             ( NAME = LS_2001-FIELDS ) ).
+      ENDIF.
+
+      SORT GT_ALV3 BY (LT_ORDER).
+
+      "FILL INTIAL DATA ON ALV3 AT CHNG MODE
+      PERFORM FILL_ALV3.
+
+  ENDCASE.
+
+ENDFORM.                    " GEN_ALV1
+*&---------------------------------------------------------------------*
+*&      Form  FILL_ALV3
+*&---------------------------------------------------------------------*
+FORM FILL_ALV3 .
+
+  IF GV_MODE3 = C_CHNG.
+
+    DATA(LV_CNT) = LINES( GT_ALV3 ).
+
+    IF LV_CNT < C_DATA_CNT.
+
+      DATA(LV_FILL_CNT) = C_DATA_CNT - LV_CNT.
+
+      DO LV_FILL_CNT TIMES.
+        APPEND VALUE TY_ALV3( ZMODULE = GV_ZMODULE CLASS = GV_CLASS ) TO GT_ALV3.
+      ENDDO.
+
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.                    " FILL_ALV3
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DATA_CHANGED
+*&---------------------------------------------------------------------*
+FORM HANDLE_DATA_CHANGED  USING SENDER
+                                P_DATA_CHANGED TYPE REF TO CL_ALV_CHANGED_DATA_PROTOCOL
+                                PV_ONF4
+                                PV_ONF4_BEFORE
+                                PV_ONF4_AFTER
+                                PV_UCOMM TYPE SY-UCOMM.
+
+  DATA: LS_MOD_CELLS TYPE LVC_S_MODI.
+
+  CASE SENDER.
+    WHEN GR_ZAVL1->MO_GRID.
+      PERFORM ASSIGN_FS_TAB USING 1.
+    WHEN GR_ZAVL2->MO_GRID.
+      PERFORM ASSIGN_FS_TAB USING 2.
+    WHEN GR_ZAVL3->MO_GRID.
+      PERFORM ASSIGN_FS_TAB USING 3.
+  ENDCASE.
+
+  LOOP AT P_DATA_CHANGED->MT_MOD_CELLS INTO LS_MOD_CELLS.
+
+    CALL METHOD P_DATA_CHANGED->GET_CELL_VALUE
+      EXPORTING
+        I_ROW_ID    = LS_MOD_CELLS-ROW_ID
+        I_TABIX     = LS_MOD_CELLS-TABIX
+        I_FIELDNAME = LS_MOD_CELLS-FIELDNAME
+      IMPORTING
+        E_VALUE     = LS_MOD_CELLS-VALUE.
+
+    IF SENDER = GR_ZALV3->MO_GRID.
+      P_DATA_CHANGED->MODIFY_CELL( I_FIELDNAME = 'CLASS'    I_ROW_ID = LS_MOD_CELLS-ROW_ID I_VALUE = GV_CLASS ).
+      P_DATA_CHANGED->MODIFY_CELL( I_FIELDNAME = 'ZMODULE'  I_ROW_ID = LS_MOD_CELLS-ROW_ID I_VALUE = GV_ZMODULE ).
+    ENDIF.
+
+    READ TABLE <FS_TAB> ASSIGNING FIELD-SYMBOL(<FS_ALV>) INDEX LS_MOD_CELLS-ROW_ID.
+    IF SY-SUBRC = 0.
+      ASSIGN COMPONENT 'CHANGED' OF STRUCTURE <FS_ALV> TO FIELD-SYMBOL(<FS_CHANGED>).
+      <FS_CHANGED> = ZCOC_X.
+    ENDIF.
+
+    "색상 필드 색상 반영
+    IF SENDER = GR_ZALV3->MO_GRID AND 
+       LS_MOD_CELLS-FIELDNAME = 'FIELD06'.
+       GT_ALV3[ LS_MOD_CELLS-ROW_ID ]-FIELD06 = LS_MOD_CELLS-VALUE.
+       PERFORM REFRESH_ALV USING 3.
+    ENDIF.
+
+  ENDLOOP.
+
+ENDFORM.                    " HANDLE_DATA_CHANGED
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_CHANGED
+*&---------------------------------------------------------------------*
+FORM CHECK_CHANGED  USING    PV_TAR
+                    CHANGING PV_CHANGED.
+
+  CLEAR PV_CHANGED.
+
+  PERFORM CHECK_CHANGED_DATA USING PV_TAR.
+
+  PERFORM ASSIGN_FS_TAB USING PV_TAR.
+
+  DATA(LV_FIELD) = |CHANGED|.
+  READ TABLE <FS_TAB> ASSIGNING FIELD-SYMBOL(<FS_ALV>) WITH KEY (LV_FIELD) = C_X.
+  IF SY-SUBRC = 0.
+    PV_CHANGED = C_X.
+  ENDIF.
+
+ENDFORM.                    " CHECK_CHANGED
+*&---------------------------------------------------------------------*
+*&      Form  UCOMM_BACK
+*&---------------------------------------------------------------------*
+FORM UCOMM_BACK .
+
+  DATA: LV_CHANGED1 TYPE C,
+        LV_CHANGED3 TYPE C.
+
+  "check changed
+  IF GV_MODE1 = C_CHNG.
+    PERFORM CHECK_CHANGED USING 1 CHANGING LV_CHANGED1.
+  ENDIF.
+
+  IF GV_MODE3 = C_CHNG.
+    PERFORM CHECK_CHANGED USING 3 CHANGING LV_CHANGED3.
+  ENDIF.
+
+  IF LV_CHANGED1 = C_X AND LV_CHANGED3 = ''.
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-801 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+    ENDIF.
+  ELSEIF LV_CHANGED1 = '' AND LV_CHANGED3 = C_X.
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-804 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+    ENDIF.
+  ELSEIF LV_CHANGED1 = C_X AND LV_CHANGED3 = C_X.
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-806 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+    ENDIF.
+  ENDIF.
+
+  GR_ZAVL1->MO_GRID->FREE( ).
+  GR_ZAVL3->MO_GRID->FREE( ).
+  GR_ZAVL1->MO_BODY->FREE( ).
+  GR_ZAVL3->MO_BODY->FREE( ).
+  GR_ZAVL1->MO_MAIN->FREE( ).
+  GR_ZAVL3->MO_MAIN->FREE( ).
+
+  LEAVE TO SCREEN 0.
+
+ENDFORM.                    " UCOMM_BACK
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_ALV
+*&---------------------------------------------------------------------*
+FORM SHOW_ALV USING PV_TAR.
+
+  PERFORM GET_DATA.
+  PERFORM GEN_ALV USING PV_TAR.
+  PERFORM REFRESH_ALV USING PV_TAR.
+
+ENDFORM.                    " SHOW_ALV
+*&---------------------------------------------------------------------*
+*&      Form  DELETE_ALL_DATA
+*&---------------------------------------------------------------------*
+FORM DELETE_ALL_DATA  USING    PV_ZMODULE
+                               PV_CLASS.
+
+  DELETE FROM ZTCO2000 WHERE ZMODULE = PV_ZMODULE
+                         AND CLASS   = PV_CLASS.
+
+  DELETE FROM ZTCO2001 WHERE ZMODULE = PV_ZMODULE
+                         AND CLASS   = PV_CLASS.
+
+  DELETE FROM ZTCO2002 WHERE ZMODULE = PV_ZMODULE
+                         AND CLASS   = PV_CLASS.
+
+  COMMIT WORK.
+
+ENDFORM.                    " DELETE_ALL_DATA
+*&---------------------------------------------------------------------*
+*&      Form  SET_MODE_ALV
+*&---------------------------------------------------------------------*
+FORM SET_MODE_ALV  USING    PV_TAR
+                            PV_MODE.
+
+  DATA: LV_CHANGED TYPE C.
+
+  DATA(LV_TAR) = |GV_MODE{ PV_TAR }|.
+  ASSIGN (LV_TAR) TO FIELD-SYMBOL(<FS_TAR>).
+
+  CASE PV_MODE.
+
+    WHEN ZCOC_E.
+
+    <FS_TAR> = C_CHNG.
+
+    WHEN ZCOC_D.
+
+      "check changed
+      PERFORM CHECK_CHANGED USING PV_TAR CHANGING LV_CHANGED.
+
+      IF LV_CHANGED = C_X.
+        IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ SWITCH STRING( PV_TAR WHEN 1 THEN TEXT-801 WHEN 2 THEN TEXT-803 WHEN 3 THEN TEXT-804 ) } { TEXT-802 }| )
+                                           IV_WINDOW_TYPE = 'B' ) NE '1'.
+          MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+        ENDIF.
+      ENDIF.
+
+      <FS_TAR> = C_DISP.
+
+  ENDCASE.
+
+  "show alv
+  PERFORM SHOW_ALV USING PV_TAR.
+
+ENDFORM.                    " SET_MODE_ALV
+*&---------------------------------------------------------------------*
+*&      Form  UCOMM_BACK_0110
+*&---------------------------------------------------------------------*
+FORM UCOMM_BACK_0110 .
+
+  DATA: LV_CHANGED2 TYPE C.
+
+  "check changed
+  IF GV_MODE2 = C_CHNG.
+    PERFORM CHECK_CHANGED USING 2 CHANGING LV_CHANGED2.
+  ENDIF.
+
+  IF LV_CHANGED2 = C_X.
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-803 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+    ENDIF.
+  ENDIF.
+
+  GR_ZAVL2->MO_GRID->FREE( ).
+  GR_ZAVL2->MO_DOCKING->FREE( ).
+
+  CLEAR: GR_ZAVL2->MO_GRID,
+         GR_ZAVL2->MO_DOCKING.
+
+  GV_MODE2 = C_DISP.
+
+  LEAVE TO SCREEN 0.
+
+ENDFORM.                    " UCOMM_BACK_0110
+*&---------------------------------------------------------------------*
+*&      Form  SET_CLASS_FIELDS
+*&---------------------------------------------------------------------*
+FORM SET_CLASS_FIELDS .
+
+  GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LINES( LT_ROW ) = 0.
+    MESSAGE I000 WITH '작업을 수행할 행을 먼저 선택해 주세요.' DISPLAY LIKE C_E. EXIT.
+  ELSEIF LINES( LT_ROW ) > 1.
+    MESSAGE I000 WITH '하나의 행만 선택해 주세요.' DISPLAY LIKE C_E. EXIT.
+  ELSE.
+
+    IF LINE_EXISTS( LT_ROW[ 1 ] ).
+
+      ASSIGN GT_ALV1[ LT_ROW[ 1 ]-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+      IF SY-SUBRC = 0.
+
+        IF <FS_ALV1>-ZMODULE IS INITIAL.
+          MESSAGE I000(0K) WITH TEXT-101 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        IF <FS_ALV1>-CLASS IS INITIAL.
+          MESSAGE I000(0K) WITH TEXT-102 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        IF NOT LINE_EXISTS( GT_2000[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] ).
+          MESSAGE I000(0K) WITH TEXT-103 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        GV_ZMODULE = <FS_ALV1>-ZMODULE.
+        GV_CLASS   = <FS_ALV1>-CLASS.
+
+        PERFORM GEN_ALV USING 2.
+
+        CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+
+        PERFORM SHOW_ALV USING 3.
+
+      ENDIF.
+
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.                    " SET_CLASS_FIELDS
+*&---------------------------------------------------------------------*
+*&      Form  SET_CLASS_FIELDS2
+*&---------------------------------------------------------------------*
+FORM SET_CLASS_FIELDS2 .
+
+  GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LINES( LT_ROW ) = 0.
+    MESSAGE I000 WITH '작업을 수행할 행을 먼저 선택해 주세요.' DISPLAY LIKE C_E. EXIT.
+  ELSEIF LINES( LT_ROW ) > 1.
+    MESSAGE I000 WITH '하나의 행만 선택해 주세요.' DISPLAY LIKE C_E. EXIT.
+  ELSE.
+
+    IF LINE_EXISTS( LT_ROW[ 1 ] ).
+
+      ASSIGN GT_ALV1[ LT_ROW[ 1 ]-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+      IF SY-SUBRC = 0.
+
+        IF <FS_ALV1>-ZMODULE IS INITIAL.
+          MESSAGE I000(0K) WITH TEXT-101 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        IF <FS_ALV1>-CLASS IS INITIAL.
+          MESSAGE I000(0K) WITH TEXT-102 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        IF NOT LINE_EXISTS( GT_2000[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] ).
+          MESSAGE I000(0K) WITH TEXT-103 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+
+        GV_ZMODULE = <FS_ALV1>-ZMODULE.
+        GV_CLASS   = <FS_ALV1>-CLASS.
+
+*        PERFORM GEN_ALV USING 2.
+*        CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+        PERFORM CALL_FIELD_SELECTION_POPUP.
+
+        PERFORM SHOW_ALV USING 3.
+
+      ENDIF.
+
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.                    " SET_CLASS_FIELDS2
+*&---------------------------------------------------------------------*
+*&      Form  F4_ZMODULE
+*&---------------------------------------------------------------------*
+FORM F4_ZMODULE  USING    P_FIELD.
+
+  SELECT DISTINCT ZMODULE
+    FROM ZTCO2000
+   ORDER BY ZMODULE
+    INTO TABLE @DATA(LT_MODULE).
+
+  PERFORM CALL_F4 TABLES LT_MODULE
+                  USING  'ZMODULE'.
+
+ENDFORM.                    " F4_ZMODULE
+*&---------------------------------------------------------------------*
+*&      Form  CALL_F4
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+FORM CALL_F4  TABLES   P_VAL
+             USING     P_FIELD.
+
+  DATA : LT_RETURN_TAB TYPE TABLE OF DDSHRETVAL.
+
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      RETFIELD        = P_FIELD
+      DYNPPROG        = SY-REPID
+      DYNPNR          = SY-DYNNR
+      DYNPROFIELD     = P_FIELD
+      VALUE_ORG       = 'S'
+    TABLES
+      VALUE_TAB       = P_VAL
+      RETURN_TAB      = LT_RETURN_TAB
+    EXCEPTIONS
+      PARAMETER_ERROR = 1
+      NO_VALUES_FOUND = 2
+      OTHERS          = 3.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+            WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+
+  ENDIF.
+
+ENDFORM.                                                    " CALL_F4
+*&---------------------------------------------------------------------*
+*&      Form  F4_CLASS
+*&---------------------------------------------------------------------*
+FORM F4_CLASS  USING    P_FIELD.
+
+  SELECT DISTINCT ZMODULE,
+                  CLASS,
+                  CLSDESC,
+                  CLSLONGDESC
+    FROM ZTCO2000
+   WHERE ZMODULE IN @S_ZMODU
+   ORDER BY ZMODULE, CLASS
+    INTO TABLE @DATA(LT_CLASS).
+
+  PERFORM CALL_F4 TABLES LT_CLASS
+                  USING  'CLASS'.
+
+ENDFORM.                    " F4_CLASS
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_DUPLICATED
+*&---------------------------------------------------------------------*
+FORM CHECK_DUPLICATED  CHANGING PV_DUP.
+
+  CLEAR PV_DUP.
+
+  LOOP AT GT_ALV1 ASSIGNING FIELD-SYMBOL(<FS_ALV1>) GROUP BY ( ZMODULE = <FS_ALV1>-ZMODULE
+                                                               CLASS   = <FS_ALV1>-CLASS ).
+
+    DATA(LV_CNT) = 0.
+    LOOP AT GROUP <FS_ALV1> TRANSPORTING NO FIELDS.
+
+      LV_CNT += 1.
+
+      IF LV_CNT > 1.
+        EXIT.
+      ENDIF.
+
+    ENDLOOP.
+
+    IF LV_CNT > 1.
+      MESSAGE I000 WITH '모듈, 코드 클래스가 중복되었습니다.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
+      PV_DUP = C_X.
+      EXIT.
+    ENDIF.
+
+  ENDLOOP.
+
+ENDFORM.                    " CHECK_DUPLICATED
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+FORM CHECK_EXISTENCE  CHANGING PV_EXIST.
+
+  CLEAR PV_EXIST.
+
+  LOOP AT GT_ALV1 ASSIGNING FIELD-SYMBOL(<FS_ALV1>) WHERE ZMODULE IS NOT INITIAL
+                                                      AND CLASS   IS NOT INITIAL
+                                                      AND CELLTAB IS INITIAL.
+
+    SELECT COUNT( MANDT )
+      FROM ZTCO2000
+     WHERE ZMODULE = @<FS_ALV1>-ZMODULE
+       AND CLASS   = @<FS_ALV1>-CLASS
+      INTO @DATA(LV_LINES).
+
+    IF LV_LINES <> 0.
+      MESSAGE I000 WITH '모듈, 코드클래스가 이미 존재합니다.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
+      PV_EXIST = C_X.
+      EXIT.
+    ENDIF.
+
+  ENDLOOP.
+
+ENDFORM.                    " CHECK_EXISTENCE
+*&---------------------------------------------------------------------*
+*&      Form  TRUNCATE_ROW
+*&---------------------------------------------------------------------*
+FORM TRUNCATE_ROW .
+
+  GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
+
+  IF LT_ROW IS INITIAL.
+    MESSAGE I000 WITH '삭제할 행을 먼저 선택해 주세요.' DISPLAY LIKE C_E. EXIT.
+  ELSE.
+
+    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-805 } {TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE 'E'. EXIT.
+    ENDIF.
+
+    SORT LT_ROW BY INDEX DESCENDING.
+
+    LOOP AT LT_ROW INTO DATA(LS_ROW).
+
+      ASSIGN GT_ALV1[ LS_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+      IF SY-SUBRC EQ 0.
+        PERFORM DELETE_ALL_DATA USING <FS_ALV1>-ZMODULE
+                                      <FS_ALV1>-CLASS.
+        DELETE GT_ALV1 INDEX LS_ROW-INDEX.
+      ENDIF.
+
+    ENDLOOP.
+
+  ENDIF.
+
+  CLEAR: GT_ALV3, GV_ZMODULE, GV_CLASS.
+
+  GV_MODE1 = C_DISP.
+  GV_MODE3 = SPACE.
+
+  PERFORM REFRESH_ALV USING: 1, 3.
+
+  MESSAGE S000 WITH '실행이 성공적으로 완료됐습니다.'.
+
+ENDFORM.                    " TRUNCATE_ROW
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_SETTING_FIELDS
+*&---------------------------------------------------------------------*
+FORM CHECK_SETTING_FIELDS  CHANGING PV_SET.
+
+  CLEAR PV_SET.
+
+  SELECT SINGLE CLASS
+    FROM ZTCO2001
+   WHERE ZMODULE = @GV_ZMODULE
+     AND CLASS   = @GV_CLASS
+    INTO @DATA(LV_CLASS).
+
+  IF SY-SUBRC = 0.
+    PV_SET = C_X.
+  ENDIF.
+
+ENDFORM.                    " CHECK_SETTING_FIELDS
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_ONF4
+*&---------------------------------------------------------------------*
+FORM HANDLE_ONF4 USING SENDER 
+                       PV_FIELDNAME  TYPE LVC_FNAME
+	                     PV_FIELDVALUE TYPE LVC_VALUE
+	                     PS_ROW_NO     TYPE LVC_S_ROID
+	                     PR_EVENT_DATA TYPE REF TO CL_ALV_EVENT_DATA
+	                     PT_BAD_CELLS  TYPE LVC_T_MODI
+	                     PV_DISPLAY.
+
+  PR_EVENT_DATA->M_EVENT_HANDLED = 'X'.
+  
+  "렌탈 손익 조견표 양식 색상 도움말
+  IF GV_CLASS IN GR_COL_CLASS.
+  	 
+  	 CASE PV_FIELDNAME.
+  	   WHEN 'FIELD06'.
+  	     DATA(LV_VALUE) = CONV LVC_EMPHSZ( PV_FIELDVALUE ).
+  	     ZCL_COC_ONF4=>F4_COLOR( CHANGING CV_EMPHASIZE = LV_VALUE ).
+  	 ENDCASE.
+  	 
+  ENDIF.
+  
+  "Not allowed changing value in Display mode
+  CHECK PV_DISPLAY = SPACE.
+  
+  ASSIGN PR_EVENT_DATA->M_DATA->* TO FIELD-SYMBOL(<FS_MODI>).
+  <FS_MODI> = VALUE LVC_T_MODI( ( ROW_ID    = PS_ROW_NO-ROW_ID
+                                  FIELDNAME = PV_FIELDNAME
+                                  VALUE     = LV_VALUE ) ).
+
+ENDFORM.                    " HANDLE_ONF4
+*&---------------------------------------------------------------------*
+*&      Form  AT_SELECTION_SCREEN_OUTPUT
+*&---------------------------------------------------------------------*
+FORM AT_SELECTION_SCREEN_OUTPUT .
+
+  "화면 필드 속성 제어
+  PERFORM MODIFY_SCREEN_0100.
+
+ENDFORM.                    " AT_SELECTION_SCREEN_OUTPUT
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_SCREEN_0100
+*&---------------------------------------------------------------------*
+FORM MODIFY_SCREEN_0100 .
+
+  "Screen control
+	LOOP AT SCREEN.
+		
+		CASE SCREEN-GROUP1.
+		
+		 WHEN 'RFC'.
+		   IF P_RFC NE ABAP_ON.
+		     SCREEN-ACTIVE = 0.
+		   ENDIF.
+		 
+	  ENDCASE.
+	
+	  MODIFY SCREEN.
+	
+  ENDLOOP.
+
+ENDFORM.                    " MODIFY_SCREEN_0100
+*&---------------------------------------------------------------------*
+*&      Form  GET_SAVE_DATA_FROM_RFC_DEST
+*&---------------------------------------------------------------------*
+FORM GET_SAVE_DATA_FROM_RFC_DEST .
+
+  DATA: LO_DATA TYPE REF TO DATA.
+
+  FIELD-SYMBOLS: <LT_ITAB> TYPE TABLE.
+  	    
+  "RFC 목적지 정보 확인
+  SELECT SINGLE *
+  	FROM RFCDES
+  	INTO @DATA(LS_RFCDES)
+   WHERE RFCDEST = @P_RFCDES.
+   
+  IF SY-SUBRC <> 0.
+    MESSAGE S000 WITH TEXT-E01 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+  
+  IF LS_RFCDES-RFCTYPE <> '3'.
+    MESSAGE S000 WITH TEXT-E02 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+  
+  "RFC 목적지 접속 확인
+  CALL FUNCTION 'RFC_CHECK_DESTINATION'
+    EXPORTING
+      MYDEST            = LS_RFCDES-RFCDEST
+      MYTYPE            = LS_RFCDES-RFCTYPE
+    EXCEPTIONS
+      EMPTY_DESTINATION = 1
+      INVALID_LOGICAL_DESTINATION = 2
+      DESTINATION_WITH_SPECIAL_CHAR = 3
+      INTERNAL_DESTINATION_ID = 4
+      EMPTY_RFCTYPE = 5
+      OTHERS = 6.
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+      
+  IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( TEXT-M01 ) IV_DEFAULT_BUTTON = '1' ) NE '1'.
+  	EXIT.
+  ENDIF.    
+      
+  "GET CODE CLASS DATA
+  SELECT TABNAME
+    FROM DD02L
+   WHERE TABNAME BETWEEN 'ZTCO2000' AND 'ZTCO2002'
+    INTO TABLE @DATA(LT_TABNM).
+      
+  IF LT_TABNM IS INITIAL.
+    MESSAGE S000 WITH TEXT-E05 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  "조건에 해당하는 데이터 삭제 후 저장
+  LOOP AT LT_TABNM ASSIGNING FIELD-SYMBOL(<FS_TABNM>).
+
+    "데이터 가져오기
+    CREATE DATA LO_DATA TYPE TABLE OF (<FS_TABNM>-TABNAME).
+    ASSING LO_DTA->* TO <LT_ITAB>.
+
+    CALL FUNCTION 'ZCOCCM_GET_TABLE_DATA'
+      EXPORTING
+        I_TABNAME = <FS_TABNM>-TABNAME
+        I_RFCDEST = LS_RFCDES-RFCDEST
+      IMPORTING
+        ET_DATA   = <LT_ITAB>.
+
+    "데이터 삭제 후 저장
+    DATA(LV_WHERE) = |ZMODULE NOT IN S_ZMODU OR CLASS NOT IN S_CLASS|.
+    DELETE <LT_ITAB> WHERE (LV_WHERE).
+
+    DELETE FROM (<FS_TABNM>-TABNAME) WHERE ZMODULE IN @S_ZMODU AND CLASS IN @S_CLASS.
+    INSERT(<FS_TABNM>-TABNAME) FROM TABLE <LT_ITAB>.
+
+  ENDLOOP.
+  
+  COMMIT WORK.
+  
+  MESSAGE S007. "작업이 정상 처리 되었습니다."
+
+ENDFORM.                    " GET_SAVE_DATA_FROM_RFC_DEST
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_CHANGED_DATA
+*&---------------------------------------------------------------------*
+FORM CHECK_CHANGED_DATA USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  <FS_ALV>->MO_GRID->CHECK_CHANGED_DATA( ).
+
+ENDFORM.                    " CHECK_CHANGED_DATA
+*&---------------------------------------------------------------------*
+*&      Form  CRAETE_ALV
+*&---------------------------------------------------------------------*
+FORM CRAETE_ALV USING PV_TAR.
+
+  PERFORM CREATE_OBJ_ALV USING PV_TAR.
+  PERFORM SET_EVENT      USING PV_TAR.
+  PERFORM SET_FDCAT      USING PV_TAR.
+  PERFORM SET_TOOLBAR    USING PV_TAR.
+  PERFORM SET_LAYOUT     USING PV_TAR.
+  PERFORM DISPLAY_ALV    USING PV_TAR.
+
+ENDFORM.                    " CRAETE_ALV
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_OBJ_ALV
+*&---------------------------------------------------------------------*
+FORM CREATE_OBJ_ALV USING PV_TAR.
+
+    PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+    CHECK <FS_ALV> IS BOUND.
+
+    IF PV_TAR = 2.
+
+      "1. CREATE CONTAINER
+      IF <FS_ALV>->MO_DOCKING IS NOT BOUND.
+        <FS_ALV>->MO_DOCKING = NEW #( SIDE      = SWITCH #( PV_TAR WHEN 2 THEN CL_GUI_DOCKING_CONTAINER=>OCK_AT_TOP
+                                                                          ELSE CL_GUI_DOCKING_CONTAINER=>DOCK_AT_LEFT )
+                                      EXTENSION = SWITCH #( PV_TAR WHEN 1 THEN 750 ELSE 2500 ) ).
+      ENDIF.
+
+      "2. ASSIGN ALV GRID 
+      IF <FS_ALV>->MO_GRID IS NOT BOUND.
+        <FS_ALV>->MO_GRID = NEW #( I_PARENT = <FS_ALV>->MO_DOCKING ).
+      ENDIF.
+
+    ELSE.
+
+      "1. MAIN DIALOGBOX CONTAINER / SPLITTER
+      IF GR_ZALV1->MO_DIALOGBOX IS NOT BOUND.
+        GR_ZALV1->MO_DIALOGBOX = NEW #( STYLE = CL_GUI_CONTROL=>WS_CHILD ).
+
+        GR_ZALV1->MO_SPLIT = NEW #( PARENT  = GR_ZALV1->MO_DIALOGBOX
+                                    ROWS    = 1
+                                    COLUMNS = 2 ).
+
+        GR_ZALV1->MO_SPLIT->SET_COLUMN_WIDTH( ID = 1 WIDTH = 40 ).
+        GR_ZALV1->MO_SPLIT->SET_BORDER( BORDER = CL_GUI_CFW=>FALSE ).
+      ENDIF.
+
+      "2. CONTAINER
+      <FS_ALV>->MO_MAIN = GR_ZALV1->MO_SPLIT->GET_CONTAINER( ROW = 1 COLUMN = SWITCH #( PV_TAR WHEN 1 THEN 1
+                                                                                               WHEN 3 THEN 2 ) ).
+
+      <FS_ALV>->MO_HEADER1 = NEW #( PARENT_CONTAINER = <FS_ALV>->MO_MAIN
+                                    COMPONENT        = VALUE #( ( RATIO     = '100'
+                                                                  DESCRIPT  = SWITCH #( PV_TAR WHEN 1 THEN TEXT-301
+                                                                                               WHEN 3 THEN TEXT-303 ) ) ) ).
+      <FS_ALV>->MO_HEADER1->GET_CONTAINER( IMPORTING CONTAINER1 = <FS_ALV>->MO_BODY ).
+
+      <FS_ALV>->MO_GRID = NEW #( I_PARENT = <FS_ALV>->MO_BODY ).
+      
+    ENDIF.
+
+ENDFORM.                    " CREATE_OBJ_ALV
+*&---------------------------------------------------------------------*
+*&      Form  SET_EVENT
+*&---------------------------------------------------------------------*
+FORM SET_EVENT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  IF GR_EVENT_HANDLER IS INITIAL.
+    CREATE OBJECT GR_EVENT_HANDLER.
+  ENDIF.
+
+  <FS_ALV>->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_MODIFIED ).
+  <FS_ALV>->MO_GRID->SET_READY_FOR_INPUT( 0 ).
+
+  SET HANDLER GR_EVENT_HANDLER->HANDLE_TOOLBAR
+              GR_EVENT_HANDLER->HANDLE_USER_COMMAND
+              GR_EVENT_HANDLER->HANDLE_DATA_CHANGED
+              FOR <FS_ALV>->MO_GRID.
+
+  CASE PV_TAR.
+    WHEN 1.
+      SET HANDLER GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK
+                  FOR <FS_ALV>->MO_GRID.
+    WHEN 2.
+
+    WHEN 3.
+      SET HANDLER GR_EVENT_HANDLER->HANDLE_ONF4
+                  FOR <FS_ALV>->MO_GRID.
+  ENDCASE.
+
+ENDFORM.                    " SET_EVENT
+*&---------------------------------------------------------------------*
+*&      Form  SET_FDCAT
+*&---------------------------------------------------------------------*
+FORM SET_FDCAT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+  PERFORM ASSIGN_FS_TAB USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  <FS_ALV>->MAKE_FIELDCATALOG( IV_MODE = 'R' IT_TABLE = <FS_TAB> ).
+
+  CASE PV_TAR.
+    WHEN 1.
+
+      LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+        CASE <FS_FDCAT>-FIELDNAME.
+          WHEN 'ZMODULE'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '모듈' ).
+          WHEN 'CLASS'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '클래스' ).
+          WHEN 'CLSDESC'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 30
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '클래스 내역' ).
+          WHEN 'CLSLONGDESC'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 40
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '클래스 내역(Long)' ).
+          WHEN OTHERS.
+            <FS_FDCAT>-NO_OUT = ZCOC_X.
+        ENDCASE.
+
+      ENDLOOP.
+
+    WHEN 2.
+
+      LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING <FS_FDCAT>.
+
+        CASE <FS_FDCAT>-FIELDNAME.
+          WHEN 'ZMODULE'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  COLTEXT   = '모듈' ).
+          WHEN 'CLASS'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  COLTEXT   = '클래스' ).
+          WHEN 'FIELDS'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  COLTEXT   = '필드' ).
+          WHEN 'DATATYPE' OR 'LENG' OR 'DECIMALS'.
+            <FS_FDCAT>-COL_POS = 3.
+          WHEN 'ZUSAGE'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                                  CHECKBOX  = ZCOC_X
+                                                  COLTEXT   = '사용여부'
+                                                  EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
+          WHEN 'ZKEY'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                                  CHECKBOX  = ZCOC_X
+                                                  COLTEXT   = '키필드 여부'
+                                                  EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
+          WHEN 'ZCHKBOX'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                                  CHECKBOX  = ZCOC_X
+                                                  COLTEXT   = '체크박스 여부'
+                                                  EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
+          WHEN 'ZSORT'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                                  " CHECKBOX  = ZCOC_X
+                                                  COLTEXT   = '정렬필드 순서'
+                                                  EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
+          WHEN 'FLDDESC'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ZCOC_X
+                                                  COLTEXT   = '필드 내역' ).
+          WHEN 'COL_POS'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ZCOC_X
+                                                  COLTEXT   = '필드 출력 위치' ).
+          WHEN 'REF_TABLE'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '참조테이블' ).
+          WHEN 'REF_FIELD'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  EDIT      = ZCOC_X
+                                                  COLTEXT   = '참조필드' ).
+          WHEN 'SHLPNAME'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  EDIT      = ZCOC_X
+                                                  NO_OUT    = ZCOC_X
+                                                  COLTEXT   = '탐색도움말' ).
+        WHEN OTHERS.
+            <FS_FDCAT>-NO_OUT = ZCOC_X.
+        ENDCASE.
+
+        <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SELTEXT = <FS_FDCAT>-COLTEXT.
+      ENDLOOP.
+
+    WHEN 3.
+
+      LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING <FS_FDCAT>.
+
+        CASE <FS_FDCAT>-FIELDNAME.
+          WHEN 'ZMODULE'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  COLTEXT   = '모듈' ).
+          WHEN 'CLASS'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  KEY       = ZCOC_X
+                                                  COLTEXT   = '클래스' ).
+          WHEN 'SEQNO'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> TECH      = ZCOC_X
+                                                  COLTEXT   = '순번' ).
+          WHEN 'DELFLAG'.
+            <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                                  CHECKBOX  = ZCOC_X
+                                                  COL_POS   = 99
+                                                  EDIT      = SWITCH #( GV_MODE3 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
+
+            IF ( GV_ZMODULE = 'CO' AND GV_CLASS = 'A04' ) OR "비용계획 버전
+               ( GV_ZMODULE = 'CO' AND GV_CLASS = 'B04' ).   "투자계획 버전
+              <FS_FDCAT>-COLTEXT = '활성여부'.
+            ELSE.                     
+              <FS_FDCAT>-COLTEXT = '삭제여부'.    
+            ENDIF.
+          WHEN OTHERS.
+            
+            READ TABLE GT_2001 INTO DATA(LS_2001) WITH KEY ZMODULE = GV_ZMODULE
+                                                           CLASS   = GV_CLASS 
+                                                           FIELDS  = <FS_FDCAT>-FIELDNAME.
+            IF SY-SUBRC = 0.
+
+              IF LS_2001-ZUSAGE IS INITIAL.
+                <FS_FDCAT>-TECH = ZCOC_X.
+              ELSE.
+                <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> KEY       = LS_2001-ZKEY
+                                                      CHECKBOX  = LS_2001-ZCHKBOX
+                                                      OUTPUTLEN = 20
+                                                      EDIT      = SWITCH #( GV_MODE3 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF )
+                                                      COL_POS   = LS_2001-COL_POS
+                                                      COL_TEXT  = LS_2001-FLDDESC ).
+
+                IF LS_2001-REF_TABLE IS NOT INITIAL AND
+                   LS_2001-REF_FIELD IS NOT INITIAL.
+
+                  <FS_FDCAT>-REF_TABLE = LS_2001-REF_TABLE.
+                  <FS_FDCAT>-REF_FIELD = LS_2001-REF_FIELD.
+
+                  SELECT SINGLE DOMNAME
+                    FROM DD03L
+                   WHERE TABNAME   = @LS_2001-REF_TABLE
+                     AND FIELDNAME = @LS_2001-REF_FIELD
+                    INTO @<FS_FDCAT>-DOMNAME.
+
+                ENDIF.
+
+              ENDIF.
+
+              "손익 조견표(렌탈/일시불) 양식 - 라인 색상 필드
+              IF <FS_FDCAT>-FIELDNAME = 'FIELD06' AND 
+                 GV_CLASS IN GR_COL_CLASS.
+                <FS_FDCAT>-F4AVAILABL = ZCOC_X.
+              ENDIF.
+
+            ELSE.
+              <FS_FDCAT>-NO_OUT = ZCOC_X.
+            ENDIF.
+        ENDCASE.
+
+        <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SELTEXT = <FS_FDCAT>-COLTEXT.
+      ENDLOOP.
+
+      IF GV_LABEL = ABAP_ON.
+        LOOP AT <FS_ALV>->MT_FDCAT_LVC ASSIGNING <FS_FDCAT>.
+          <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SELTEXT = <FS_FDCAT>-COLTEXT = <FS_FDCAT>-FIELDNAME.
+        ENDLOOP.
+      ENDIF.
+
+  ENDCASE.
+
+ENDFORM.                    " SET_FDCAT
+*&---------------------------------------------------------------------*
+*&      Form  SET_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM SET_TOOLBAR USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  <FS_ALV>->SET_TOOLBAR_STD( '3' ).
+
+ENDFORM.                    " SET_TOOLBAR
+*&---------------------------------------------------------------------*
+*&      Form  SET_LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_LAYOUT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  <FS_ALV>->MS_LAYOUT = VALUE #( CWIDTH_OPT = SWITCH #( PV_TAR WHEN 3 THEN 'X' ELSE ' ' )
+                                 SEL_MODE   = 'D'
+                                 STYLEFNAME = 'CELLTAB'
+                                 CTAB_FNAME = 'COLINFO'
+                                 NO_ROWINS  = SWITCH #( PV_TAR WHEN 2 THEN 'X' ELSE ' ' )
+                                 GRID_TITLE = SWITCH #( PV_TAR WHEN 1 THEN TEXT-301 WHEN 3 THEN TEXT-303 ) ).
+
+  <FS_ALV>->MS_VARIANT = VALUE #( REPORT = SY-REPID         
+                                  HANDLE = SWITCH #( PV_TAR WHEN 1 THEN 'A' WHEN 2 THEN 'B' WHEN 3 WHEN 'C' ) ).
+
+ENDFORM.                    " SET_LAYOUT
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+FORM DISPLAY_ALV USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  PERFORM ASSIGN_FS_TAB USING PV_TAR.
+
+  CALL METHOD <FS_ALV>->MO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+    EXPORTING
+      IS_VARIANT                     = <FS_ALV>->MS_VARIANT
+      I_SAVE                         = <FS_ALV>->MV_VARIANT_SAVE
+      I_DEFAULT                      = ABAP_ON
+      IS_LAYOUT                      = <FS_ALV>->MS_LAYOUT
+      IT_TOOLBAR_EXCLUDING           = <FS_ALV>->MT_UI_FUNCTIONS
+    CHANGING
+      IT_OUTTAB                      = <FS_TAB>
+      IT_FIELDCATALOG                = <FS_ALV>->MT_FDCAT_LVC
+      IT_SORT                        = <FS_ALV>->MT_SORT
+    EXCEPTIONS  
+      INVALID_PARAMETER_COMBINATION  = 1
+      PROGRAM_ERROR                  = 2
+      TOO_MANY_LINES                 = 3
+      OTHERS                         = 4.
+      
+ENDFORM.                    " DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*&      Form  SET_READY_FOR_INPUT
+*&---------------------------------------------------------------------*
+FORM SET_READY_FOR_INPUT USING PV_TAR.
+
+  PERFORM ASSIGN_FS_ALV USING PV_TAR.
+
+  CHECK <FS_ALV> IS BOUND.
+
+  DATA(LV_TAR) = |GV_MODE{ PV_TAR }|.
+  ASSIGN(LV_TAR) TO FIELD-SYMBOL(<FS_TAR>).
+
+  <FS_ALV>->MO_GRID->SET_READY_FOR_INPUT( SWITCH #( <FS_ALV> WHEN C_DISP THEN 0 WHEN C_CHNG THEN 1 ) ).
+
+ENDFORM.                    " SET_READY_FOR_INPUT
+*&---------------------------------------------------------------------*
+*&      Form  ASSIGN_FS_ALV
+*&---------------------------------------------------------------------*
+FORM ASSIGN_FS_ALV USING PV_TAR.
+
+  UNASSIGN <FS_ALV>.
+
+  DATA(LV_ALV) = |GR_ZALV{ PV_TAR }|.
+  ASSIGN(LV_ALV) TO <FS_ALV>.
+
+ENDFORM.                    " ASSIGN_FS_ALV
+*&---------------------------------------------------------------------*
+*&      Form  ASSIGN_FS_TAB
+*&---------------------------------------------------------------------*
+FORM ASSIGN_FS_TAB USING PV_TAR.
+
+  UNASSIGN <FS_TAB>.
+
+  DATA(LV_TAB) = |GT_ALV{ PV_TAR }|.
+  ASSIGN(LV_TAB) TO <FS_TAB>.
+
+ENDFORM.                    " ASSIGN_FS_TAB
+*&---------------------------------------------------------------------*
+*&      Form  CALL_FIELD_SELECTION_POPUP
+*&---------------------------------------------------------------------*
+FORM CALL_FIELD_SELECTION_POPUP.
+
+  DATA: LT_FCAT_LEFT   TYPE LVC_T_FCAT,
+        LT_FCAT_RIGHT  TYPE LVC_T_FCAT,
+        LT_DATA_LEFT   TYPE TABLE OF TY_ALV2,
+        LT_DATA_RIGHT  TYPE TABLE OF TY_ALV2,
+        LV_OK          TYPE C.
+
+  "ALV 데이터 추출
+  PERFORM GET_ALV2 TABLES LT_DATA_LEFT LT_DATA_RIGHT.
+
+  "FIELD CATALOG 추출
+  PERFORM SET_FDCAT2 TABLES LT_FCAT_LEFT LT_FCAT_RIGHT.
+
+  CALL FUNCTION 'ZCOCCM_FIELD_SELECTION_POPUP'
+    EXPORTING
+      I_MIN_COLUMNS = 1
+      I_TITLE_POPUP = '필드 정의'
+      IS_COORD      = VALUE FGL_S_POPUP_COORD( START_COL = 20 START_ROW = 3 END_COL = 100 END_ROW = 25 )
+    IMPORTING
+      E_FS_OK       = LV_OK
+    TABLES 
+      T_DATA_LEFT   = LT_DATA_LEFT
+      T_DATA_RIGHT  = LT_DATA_RIGHT
+      T_FCAT_LEFT   = LT_FCAT_LEFT
+      T_FCAT_RIGHT  = LT_FCAT_RIGHT.
+
+  IF LV_OK = ABAP_ON.
+    PERFORM SAVE_FIELDS_ATTR TABLES LT_DATA_LEFT LT_DATA_RIGHT.
+  ENDIF.
+
+ENDFORM.                    " CALL_FIELD_SELECTION_POPUP
+*&---------------------------------------------------------------------*
+*&      Form  SET_FDCAT2
+*&---------------------------------------------------------------------*
+FORM SET_FDCAT2 USING PT_FCAT_LEFT  TYPE LVC_T_FCAT
+                      PT_FCAT_RIGHT TYPE LVC_T_FCAT.
+                       
+  PT_FCAT_RIGHT = GR_ZALV2->MAKE_FIELDCATALOG( IV_MODE = 'R' IT_TABLE = GT_ALV2 ).
+
+  "RIGHT
+  LOOP AT PT_FCAT_RIGHT->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+    CASE <FS_FDCAT>-FIELDNAME.
+      WHEN 'ZMODULE'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> COL_POS   = 1
+                                              OUTPUTLEN = 10
+                                              KEY       = ABAP_ON
+                                              NO_OUT    = ABAP_ON
+                                              COLTEXT   = '모듈' ).
+      WHEN 'CLASS'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> COL_POS   = 1
+                                              OUTPUTLEN = 10
+                                              KEY       = ABAP_ON
+                                              NO_OUT    = ABAP_ON
+                                              COLTEXT   = '클래스' ).
+      WHEN 'FIELDS'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> COL_POS   = 2
+                                              OUTPUTLEN = 10
+                                              COLTEXT   = '필드' ).
+      WHEN 'DATATYPE' OR 'LENG' OR 'DECIMALS'.
+        <FS_FDCAT>-COL_POS = 3.
+      WHEN 'ZUSAGE'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              CHECKBOX  = ABAP_ON
+                                              NO_OUT    = ABAP_ON
+                                              COLTEXT   = '사용여부'
+                                              EDIT      = ABAP_ON ).
+      WHEN 'ZKEY'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              CHECKBOX  = ABAP_ON
+                                              COLTEXT   = '키필드 여부'
+                                              EDIT      = ABAP_ON ).
+      WHEN 'ZCHKBOX'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              CHECKBOX  = ABAP_ON
+                                              COLTEXT   = '체크박스 여부'
+                                              EDIT      = ABAP_ON ).
+      WHEN 'ZSORT'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              " CHECKBOX  = ABAP_ON
+                                              COLTEXT   = '정렬필드 순서'
+                                              EDIT      = ABAP_ON ).
+      WHEN 'FLDDESC'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 20
+                                              EDIT      = ABAP_ON
+                                              COLTEXT   = '필드 내역' ).
+      WHEN 'COL_POS'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ABAP_ON
+                                              NO_OUT    = ABAP_ON
+                                              COLTEXT   = '필드 출력 위치' ).
+      WHEN 'REF_TABLE'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              EDIT      = ABAP_ON
+                                              COLTEXT   = '참조테이블' ).
+      WHEN 'REF_FIELD'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
+                                              EDIT      = ABAP_ON
+                                              COLTEXT   = '참조필드' ).
+      WHEN 'SHLPNAME'.
+        <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
+                                              EDIT      = ABAP_ON
+                                              NO_OUT    = ABAP_ON
+                                              COLTEXT   = '탐색도움말' ).
+    WHEN OTHERS.
+        <FS_FDCAT>-NO_OUT = ABAP_ON.
+    ENDCASE.
+
+    <FS_FDCAT>-SCRTEXT_L = <FS_FDCAT>-SCRTEXT_M = <FS_FDCAT>-SCRTEXT_S = <FS_FDCAT>-SELTEXT = <FS_FDCAT>-COLTEXT.
+  ENDLOOP.
+
+  "LEFT
+  LOOP AT PT_FCAT_RIGHT ASSIGNING <FS_FDCAT>.
+
+    APPEND INITIAL LINE TO PT_FCAT_RIGHT ASSIGNING FIELD-SYMBOL(<FS_FCAT_LEFT>).
+    <FS_FCAT_LEFT> = <FS_FDCAT>.
+
+    <FS_FCAT_LEFT>-EDIT   = ABAP_OFF.
+    <FS_FCAT_LEFT>-NO_OUT = ABAP_ON.
+
+    CASE <FS_FDCAT>-FIELDNAME.
+      WHEN 'ZMODULE'.
+        <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
+      WHEN 'CLASS'.
+        <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
+      WHEN 'SEQNO'.
+        <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
+        <FS_FCAT_LEFT>-KEY    = ABAP_ON.
+      WHEN 'DELFLAG'.
+        <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
+    ENDCASE.
+
+  ENDLOOP.
+
+ENDFORM.                    " SET_FDCAT
+*&---------------------------------------------------------------------*
+*&      Form  GET_ALV2
+*&---------------------------------------------------------------------*
+FORM GET_ALV2 USING PT_DATA_LEFT  LIKE GT_ALV2
+                    PT_DATA_RIGHT LIKE GT_ALV2.
+
+  PERFORM GEN_ALV USING 2.
+
+  PT_DATA_LEFT[]  = VALUE #( FOR LS_ALV2 IN GT_ALV2 WHERE ( ZUSAGE = ABAP_OFF )
+                             ( CORRESPONDING #( LS_ALV2 ) ) ).
+  PT_DATA_RIGHT[] = VALUE #( FOR LS_ALV2 IN GT_ALV2 WHERE ( ZUSAGE = ABAP_ON )
+                             ( CORRESPONDING #( LS_ALV2 ) ) ).
+
+  SORT PT_DATA_LEFT  BY FIELDS.                           
+  SORT PT_DATA_RIGHT BY COL_POS.
+
+ENDFORM.                    " GET_ALV2
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_FIELDS_ATTR
+*&---------------------------------------------------------------------*
+FORM SAVE_FIELDS_ATTR USING PT_LEFT  LIKE GT_ALV2
+                            PT_RIGHT LIKE GT_ALV2.
+
+  DATA: LT_2001 LIKE TABLE OF ZTCO2001.
+
+  GT_ALV2 = CORRESPONDING #( PT_LEFT[] EXCEPT ZUSAGE
+                                              ZKEY
+                                              ZCHKBOX
+                                              ZSORT
+                                              FLDDESC
+                                              COL_POS
+                                              REF_TABLE
+                                              REF_FIELD
+                                              SHLPNAME ).
+
+  DATA(LV_IDX) = 11.
+  LOOP AT PT_RIGHT ASSIGNING FIELD-SYMBOL(<FS_RIGHT>).
+    APPEND INITIAL LINE TO GT_ALV2 ASSIGNING FIELD-SYMBOL(<FS_ALV2>).
+    <FS_ALV2> = CORRESPONDING #( <FS_RIGHT> ).
+    
+    <FS_ALV2>-ZUSAGE  = ABAP_ON.
+    <FS_ALV2>-COL_POS = LV_IDX.
+    LV_IDX += 1.
+  ENDLOOP.
+
+  SORT GT_ALV2 BY FIELDS.
+
+  LOOP AT GT_ALV2 ASSIGNING <FS_ALV2>.
+
+    APPEND INITIAL LINE TO LT_2001 ASSIGNING FIELD-SYMBOL(<FS_2001>).
+    <FS_2001> = CORRESPONDING #( <FS_ALV2> ).
+
+    ASSIGN GT_2001[ ZMODULE = <FS_ALV2>-ZMODULE CLASS = <FS_ALV2>-CLASS FIELDS = <FS_ALV2>-FIELDS ] TO FIELD-SYMBOL(<FS_OLD>).
+    IF SY-SUBRC = 0.
+      "update
+      <FS_2001> = VALUE #( BASE <FS_2001> ERDAT = <FS_OLD>-ERDAT
+                                          ERZET = <FS_OLD>-ERZET
+                                          ERNAM = <FS_OLD>-ERNAM
+                                          AEDAT = SY-DATUM
+                                          AEZET = SY-UZEIT
+                                          AENAM = SY-UNAME ).
+    ELSE.
+      "create
+      <FS_2001> = VALUE #( BASE <FS_2001> ERDAT = SY-DATUM
+                                          ERZET = SY-UZEIT
+                                          ERNAM = SY-UNAME ).
+    ENDIF.
+
+  ENDLOOP.
+
+  MODIFY ZTCO2001 FROM TABLE LT_2001.
+
+  COMMIT WORK.
+
+  GV_MODE3 = C_DISP.
+
+  MESSAGE S000 WITH '실행이 성공적으로 완료됐습니다.'.
+
+ENDFORM.                    " SAVE_FIELDS_ATTR
+*&---------------------------------------------------------------------*
+*&      Form  CHANGE_LABEL
+*&---------------------------------------------------------------------*
+FORM CHANGE_LABEL.
+
+  GV_LABEL = SWITCH #( GV_LABEL WHEN ABAP_ON THEN ABAP_OFF ELSE ABAP_ON ).
+
+  PERFORM SET_FDCAT USING 3.
+
+  GR_ZALV3->MO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = GR_ZALV3->MS_LAYOUT ).
+  GR_ZALV3->MO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = GR_ZALV3->MT_FDCAT_LVC ).
+  GR_ZALV3->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+  CALL METHOD CL_GUI_CFW=>FLUSH.
+
+ENDFORM.

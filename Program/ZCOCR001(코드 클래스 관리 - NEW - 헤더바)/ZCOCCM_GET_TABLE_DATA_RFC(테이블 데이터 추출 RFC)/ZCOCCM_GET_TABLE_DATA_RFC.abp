@@ -1,0 +1,67 @@
+FUNCTION ZCOCCM_GET_TABLE_DATA_RFC
+*"----------------------------------------------------------------------
+*" RFC 타입으로 생성 할 것.(가져올 RFC DEST에 해당 함수가 전송 되어야 함)
+*"----------------------------------------------------------------------
+*"*" LOCAL INTERFACE:
+*"   IMPORTING
+*"     VALUE(I_TABNAME) TYPE TABNAME
+*"     VALUE(I_COUNT) TYPE INT8 OPTIONAL
+*"     VALUE(I_DOCNT) TYPE INT4 OPTIONAL
+*"   EXPORTING
+*"     VALUE(E_XMLSTRING) TYPE XSTRING
+*"   TABLES
+*"     IT_QUERY STRUCTURE RFC_DB_OPT OPTIONAL
+*"----------------------------------------------------------------------
+
+	CLEAR: E_XMLSTRING.
+
+	DATA: LO_DATA  TYPE REF TO DATA,
+	      LT_ORDER TYPE TABLE OF FIELDNAME.
+	
+	FIELD-SYMBOL: <LT_ITAB> TYPE TABLE.
+
+	"DYNAMICALLY CREATE ITAB
+	CREATE DATA LO_DATA TYPE TABLE OF (I_TABNAME).
+	ASSIGN LO_DATA->* TO <LT_ITAB>.
+
+	IF I_COUNT = 0 AND I_DOCNT = 1.
+
+	  "전체 추출
+	  SELECT * 
+	    FROM (I_TABNAME) 
+	   WHERE (IT_QUERY)
+	    INTO TABLE @<LT_ITAB>.
+
+	ELSE.
+
+	  "해당 라인만큼 추출
+
+	  "범위 지정
+	  DATA(LV_OFFSET) = I_COUNT * ( I_DOCNT - 1 ).
+
+	  "정렬을 위한 KEY 필드
+	  LT_ORDER = ZCL_COC_COMM=>GET_KEY_FIELDS( I_TABNAME ).
+	  LOOP AT LT_ORDER ASSIGNING FIELD-SYMBOL(<FS_ORDER>).
+		AT LAST.
+		  DATA(LV_LAST) = ABAP_ON.
+		ENDAT.
+		IF LV_LAST IS INITIAL.
+		  <FS_ORDER> = <FS_ORDER> && ','.
+		ENDIF.
+	  ENDLOOP.
+
+	  SELECT * 
+	    FROM (I_TABNAME) 
+	   WHERE (IT_QUERY)
+	   ORDER BY (LT_ORDER)
+	    INTO TABLE @<LT_ITAB>
+	   UP TO @I_COUNT ROWS OFFSET @LV_OFFSET.
+
+	ENDIF.
+
+	"RFC 전송을 위한 데이터 변환
+	CALL TRANSFORMATION ID
+	  SOURCE ITAB = <LT_ITAB>
+	  RESULT XML E_XMLSTRING.
+	
+ENDFUNCTION.

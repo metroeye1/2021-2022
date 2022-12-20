@@ -1,0 +1,102 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR005T01
+*&---------------------------------------------------------------------*
+INCLUDE: <CL_ALV_CONTROL>, <CTLDEF>.
+
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: TADIR, DD02L, ZCOCT006, ZCOCT007.", ZCOCT008. -> RAWSTRING ERROR
+
+*----------------------------------------------------------------------*
+* Constants
+*----------------------------------------------------------------------*
+CONSTANTS: C_C             TYPE C                 VALUE 'C',
+           C_X             TYPE C                 VALUE 'X',
+           C_PGMID(4)      TYPE C                 VALUE 'R3TR',
+           C_OBJECT(4)     TYPE C                 VALUE 'TABL',
+           C_LINE_LENGTH   TYPE I                 VALUE 255,
+           C_CELLTAB       TYPE FIELDNAME         VALUE 'CELLTAB',
+           C_MAIN_TAB      TYPE STRING            VALUE 'ZCOCT006',
+           C_BLOG_TAB      TYPE STRING            VALUE 'ZCOCT008',
+           C_CHG_INFO      TYPE STRING            VALUE 'ZCOCCMS001'.
+
+*----------------------------------------------------------------------*
+* TYPES
+*----------------------------------------------------------------------*
+TYPE-POOLS: ICON, SLIS, TRUXS.
+
+TYPES: BEGIN OF TY_RESULT_100,
+        ZMODULE     LIKE ZCOCT006-ZMODULE,
+        TABNAME     LIKE ZCOCT006-TABNAME,
+        TABNAME_TXT LIKE DD02T-DDTEXT,
+        DATA_CNT    TYPE I,
+        DISP_SEQ    LIKE ZCOCT006-DISP_SEQ,
+        BACKUP      LIKE ZCOCT006-BACKUP,
+        DISP_ALL    LIKE ICON-ID,
+        FILTER      LIKE ICON-ID,
+      END   OF TY_RESULT_100.
+
+TYPES: BEGIN OF TY_FIELDLIST,
+        POSITION      LIKE DD03L-POSITION,
+        FIELDNAME     LIKE DD03L-FIELDNAME,
+        FIELDNAME_TXT LIKE DD04T-DDTEXT,
+        DATATYPE      LIKE DFIES-DATATYPE, "RFC_DB_FLD-TYPE,
+        LENGTH        LIKE RFC_DB_FLD-LENGTH,
+      END   OF TY_FIELDLIST.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLE
+*----------------------------------------------------------------------*
+DATA: GS_RESULT_100   TYPE TY_RESULT_100,
+      GT_RESULT_100   TYPE TABLE OF TY_RESULT_100,
+      GT_FIELDLIST    TYPE TABLE OF TY_FIELDLIST,
+      GT_QUERY        TYPE TABLE OF RFC_DB_OPT,
+      GT_SELECTED_ROW TYPE LVC_T_ROW.
+
+*----------------------------------------------------------------------*
+* GLOVAL VARIABLES
+*----------------------------------------------------------------------*
+DATA: GR_ZALV1                 TYPE REF TO ZCL_COC_ALV,
+      GR_ZALV2                 TYPE REF TO ZCL_COC_ALV,
+      GR_ZALV3                 TYPE REF TO ZCL_COC_ALV,
+      GR_EVENT_HANDLER         TYPE REF TO ZCL_COC_EVENT_HANDLER,
+      GR_EDITOR                TYPE REF TO CL_GUI_TEXTEDIT,
+      GR_EDITOR_CONTAINER      TYPE REF TO CL_GUI_CUSTOM_CONTAINER.
+
+DATA: GV_TITLE       TYPE SY-TITLE,
+      GV_LABEL       TYPE C,
+      GV_LEFT_WIDTH  TYPE I,
+      GV_SUBRC       LIKE SY-SUBRC,
+      GV_DATA_CNT    TYPE I,
+      GV_RESULT_CNT  TYPE I,
+      GV_TOTAL_CNT   TYPE I.
+
+*----------------------------------------------------------------------*
+* FOR DYNAMIC INTERNAL TABLE
+*----------------------------------------------------------------------*
+FIELD-SYMBOLS: <FS_DYN_TABLE>      TYPE STANDARD TABLE,
+               <FS_DYN_TABLE_DISP> TYPE STANDARD TABLE,
+               <FS_DYN_TABLE_DOWN> TYPE STANDARD TABLE,
+               
+               <FS_TAB>            TYPE STANDARD TABLE,
+               <FS_ALV>            TYPE REF TO ZCL_COC_ALV.
+
+*----------------------------------------------------------------------*
+* SELECTION-SCREEN
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-T01.
+
+SELECT-OPTIONS: S_ZMODUL FOR ZCOCT006-ZMODULE MODIF ID GR1,
+                S_TABNAM FOR ZCOCT006-TABNAME MODIF ID GR1.
+
+SELECT-OPTIONS: S_TABNM FOR DD02L-TABNAME MODIF ID GR2.
+PARAMETERS: P_RFCDES LIKE RFCDES-RFCDEST MODIF ID GR2.
+	
+SELECTION-SCREEN END OF BLOCK B1.
+
+SELECTION-SCREEN BEGIN OF BLOCK B3 WITH FRAME TITLE TEXTT03.
+PARAMETERS: P_EDIT RADIOBUTTON GROUP R2 DEFAULT 'X' USER-COMMAND FC1,
+            P_DISP RADIOBUTTON GROUP R2,
+            P_COPY RADIOBUTTON GROUP R2.
+SELECTION-SCREEN END OF BLOCK B3.

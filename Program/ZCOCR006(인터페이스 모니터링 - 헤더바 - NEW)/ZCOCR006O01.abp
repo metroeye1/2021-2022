@@ -1,0 +1,32 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR006O01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE STATUS_0100 OUTPUT.
+
+  SET PF-STATUS '0100'.
+  SET TITLEBAR '0100' WITH GV_TITLE GS_SEL-P_NAME.
+
+ENDMODULE.                 " STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*&      Module  INIT_0100  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE INIT_0100 OUTPUT.
+
+  DATA: LV_EXIT TYPE C.
+
+  CHECK GR_TREE->MO_DOCKING IS INITIAL.
+
+  PERFORM CREATE_TREE_OBJECT.
+
+  PERFORM CHECK_TABLES CHANGING LV_EXIT.
+
+  CHECK LV_EXIT EQ SPACE.
+
+  PERFORM DYNAMIC_TABLE_CREATE.
+  PERFORM SELECTION_LOG_DATA .
+  PERFORM CREATE_ALV_LIST_DISPLAY .
+
+ENDMODULE.                 " OBJECT_CREATE  OUTPUT

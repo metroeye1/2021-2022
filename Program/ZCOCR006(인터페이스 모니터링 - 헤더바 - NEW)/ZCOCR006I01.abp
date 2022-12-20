@@ -1,0 +1,27 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR006I01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+
+  CASE SY-UCOMM.
+
+    WHEN 'BACK' OR 'EXIT' OR 'CANC'.
+      LEAVE PROGRAM.
+
+    WHEN 'EXEC'.
+      PERFORM UCOMM_EXEC.
+
+    WHEN 'TREE'.
+      PERFORM TREE_ON_OFF.
+
+    WHEN 'MNTN'.
+      PERFORM MAINTAIN_INTERFACE.
+
+  ENDCASE.
+
+ENDMODULE.                 " USER_COMMAND_0100  INPUT

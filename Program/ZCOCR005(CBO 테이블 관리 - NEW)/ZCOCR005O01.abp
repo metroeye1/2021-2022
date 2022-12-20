@@ -1,0 +1,67 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZLSHADMINO01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE STATUS_0100 OUTPUT.
+
+  DATA(LV_TITLE) = SWITCH #( P_EDIT WHEN ABAP_ON THEN |변경| ELSE |조회| ).
+
+  SET PF-STATUS 'G0100'. "(툴바:CHG_SCREEN, ICON_TOGGLE_DISPLAY / CHG_LABEL, ICON_BW_APD, 필드 라벨 변경 / 기능키: BACK,EXIT,CANC 기능유형 'E'로 설정)
+  SET TITLEBAR 'T0100' WITH GV_TITLE LV_TITLE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  INIT_0100  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE INIT_0100 OUTPUT.
+
+  IF GR_ZALV1->MO_GRID IS INITIAL.
+    PERFORM CREATE_ALV USING 1.
+    PERFORM CREATE_ALV USING 2.
+  ENDIF.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0200  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE STATUS_0200 OUTPUT.
+
+  SET PF-STATUS 'G0200'. "(툴바:SAVE_200, ICON_READ_FILE, SQL 조회 / 기능키: BACK,EXIT,CANC 기능유형 'E'로 설정)
+  SET TITLEBAR 'T0200'.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  INIT_0200  OUTPUT
+*&---------------------------------------------------------------------*
+MODULE INIT_0200 OUTPUT.
+
+  IF GR_EDITOR IS INITIAL.
+
+    GR_EDITOR_CONTAINER = NEW #( CONTAINER_NAME = 'TEXTEDITOR' ).
+    GR_EDITOR = NEW #( PARENT                       = GR_EDITOR_CONTAINER
+                       WORDWRAP_MODE                = CL_GUI_TEXTEDIT=>WORDWRAP_AT_FIXED_POSITION
+                       WORDWRAP_POSITION            = C_LINE_LENGTH
+                       WORDWRAP_TO_LINEBREAK_MODE   = CL_GUI_TEXTEDIT=>TRUE ).
+
+    GR_EDITOR->SET_TEXT_AS_R3TABLE( TABLE = GT_QUERY ).
+
+  ENDIF.
+
+  IF GR_ZALV3->MO_GRID IS INITIAL.
+
+    GR_ZALV3->MO_GRID = NEW #( I_PARENT = NEW CL_GUI_CUSTOM_CONTAINER( CONTAINER_NAME = 'SQL_CON' ) ).
+
+    PERFORM SET_LAYOUT     USING 3.
+    PERFORM SET_EVENT      USING 3.
+    PERFORM SET_FDCAT      USING 3.
+    PERFORM DISPLAY_ALV    USING 3.
+
+  ELSE.
+
+    PERFORM REFRESH_ALV USING 3.
+
+  ENDIF.
+
+ENDMODULE.

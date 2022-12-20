@@ -1,0 +1,120 @@
+************************************************************************
+* 모듈             : CO
+* Type            : REPORT
+* Program ID      : ZCOCR005
+* T-Code          : ZCOCR005
+* Create Date     : 2021.04.24
+* Description     : CBO 테이블 관리
+************************************************************************
+*                       MODIFICATION LOG                               *
+*----------------------------------------------------------------------*
+*  DATE            AUTHORS                  DESCRIPTION                *
+*----------------------------------------------------------------------*
+*                                                                      *
+************************************************************************
+* Comment : 
+************************************************************************
+REPORT ZCOCR005 MESSAGE-ID ZCOC1.
+
+*----------------------------------------------------------------------*
+* INCLUDE
+*----------------------------------------------------------------------*
+INCLUDE ZCOCR005T01.
+INCLUDE ZCOCR005O01.
+INCLUDE ZCOCR005I01.
+INCLUDE ZCOCR005F01.
+
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  PERFORM INITIALIZATION.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN OUTPUT.
+  PERFORM AT_SELECTION_SCREEN_OUTPUT.
+  
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_TABNAM-LOW.
+  PERFORM F4_TABNAM USING 'S_TABNAM-LOW' ABAP_OFF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_TABNAM-HIGH.
+  PERFORM F4_TABNAM USING 'S_TABNAM-HIGH' ABAP_OFF.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_TABNM-LOW.
+  PERFORM F4_TABNAM USING 'S_TABNM-LOW' ABAP_ON.
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_TABNM-HIGH.
+  PERFORM F4_TABNAM USING 'S_TABNM-HIGH' ABAP_ON.
+
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+	PERFORM START_OF_SELECTION.
+
+*GUI Texts
+*---------------------------------------------------------
+* T0100 --> &1 - &2
+* T0200 --> SQL
+
+*Text elements
+*---------------------------------------------------------
+* 005 .xlsx
+* B01 Excel Download
+* B02 Excel Upload
+* B03 Save
+* B04 With SQL
+* B05 DELETE
+* B06 REFRESH
+* E01 Input Table Name to Copy
+* E02 Input Source RFC Destination
+* E03 RFC Destination is not vaild
+* E04 RFC Destination is not on R/3 System
+* E05 Only CBO Table Data can be transfered
+* H01 Table Name
+* H02 Data Count
+* H03 Position
+* H04 MODULE
+* H05 Filter
+* H06 Table Data
+* M01 No Data Found.
+* M02 Please select the row.
+* M03 has been saved successfully.
+* M04 Error occurred.
+* M06 has been deleted successfully.
+* M07 Action cancelled.
+* M08 Excel Upload Error.
+* M09 SQL Error.
+* M10 has been uploaded successfully.
+* M11 Please selct the table first.
+* M99 You have no authorization for this transaction.
+* N01 테이블 데이터 삭제 후 복사합니다. 계속 진행하시겠습니까?
+* P01 Data Processing.
+* P02 Do you want to save the selected data?
+* P03 Do you want to delete the selected data?
+* P04 Do you want to backup ALL DATA?
+* T01 Selections
+* T02 Action
+* T03 Display Option
+
+
+*Selection texts
+*---------------------------------------------------------
+* P_RFCDES       Source RFC Destination "Source RFC 목적지
+* P_COPY         Copy From RFC Destination "타 클라이언트로부터 복사
+* P_DISP         DISPLAY MODE "조회
+* P_EDIT         EDIT MODE "변경
+* S_TABNAM D       . "테이블이름
+* S_TABNM D        . "테이블이름
+* S_ZMODUL       MODULE "모듈
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: ZCOC1
+*000   & & & &
+*001   There is no data "조건을 만족하는 데이터가 존재하지 않습니다.
+*007   The execution has been succeed "작업이 정상 처리 되었습니다.
+*398   & & & &

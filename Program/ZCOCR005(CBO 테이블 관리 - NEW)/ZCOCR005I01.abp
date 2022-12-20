@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZLSHADMINI01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  EXIT  INPUT
+*&---------------------------------------------------------------------*
+MODULE EXIT INPUT.
+
+  LEAVE TO SCREEN 0.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+
+  GR_ZALV1->MV_UCOMM = GR_ZALV1->MV_OKCODE.
+  CLEAR GR_ZALV1->MV_OKCODE.
+
+  CASE GR_ZALV1->MV_UCOMM.
+    WHEN 'CHG_LABEL'.
+      PERFORM CHANGE_LABEL.
+    WHEN 'CHG_SCREEN'.
+      PERFORM CHANGE_SCREEN_SIZE.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+MODULE USER_COMMAND_0200 INPUT.
+
+  GR_ZALV3->MV_UCOMM = GR_ZALV3->MV_OKCODE.
+  CLEAR GR_ZALV3->MV_OKCODE.
+
+  CASE GR_ZALV3->MV_UCOMM.
+    WHEN 'SAVE_200'.
+      PERFORM SAVE_QUERY CHANGING GV_SUBRC.
+      PERFORM GET_AND_DISPLAY_DATA USING GS_RESULT_100.
+      LEAVE TO SCREEN 0.
+  ENDCASE.
+
+ENDMODULE.

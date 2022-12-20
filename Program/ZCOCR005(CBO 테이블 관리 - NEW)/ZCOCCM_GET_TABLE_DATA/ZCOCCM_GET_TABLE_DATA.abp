@@ -1,0 +1,26 @@
+FUNCTION ZCOCCM_GET_TABLE_DATA.
+*"----------------------------------------------------------------------
+*"*"Local interface:
+*"  IMPORTING
+*"    VALUE(I_TABNAME) TYPE TABNAME
+*"    VALUE(I_RFCDEST) TYPE RFCDEST
+*"  EXPORTING 
+*"    REFERENCE(ET_DATA) TYPE TABLE
+*"----------------------------------------------------------------------
+  
+  CLEAR: ET_DATA.
+  
+  DATA: L_XMLSTRING TYPE XSTRING.
+  	
+  CALL FUNCTION 'ZCOCCM_GET_TABLE_DATA_RFC'
+    DESTINATION I_RFCDEST
+    EXPORTING 
+      I_TABNAME   = I_TABNAME
+    IMPORTING
+      E_XMLSTRING = L_XMLSTRING.
+      
+  CALL TRANSFORMATION ID
+    SOURCE XML L_XMLSTRING
+    RESULT ITAB = ET_DATA.
+    
+ENDFUNCTION.

@@ -1,0 +1,9 @@
+FUNCTION ZCOCCM_GET_TABLE_DATA.
+*"----------------------------------------------------------------------
+*"*"Local interface:
+*"  IMPORTING
+*"    VALUE(I_TABNAME) TYPE TABNAME
+*"    VALUE(I_RFCDEST) TYPE RFCDEST
+*"  EXPORTING 
+*"    REFERENCE(ET_DATA) TYPE TABLE
+*"----------------------------------------------------------------------

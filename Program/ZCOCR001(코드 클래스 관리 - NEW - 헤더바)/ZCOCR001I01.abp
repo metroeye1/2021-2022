@@ -1,0 +1,39 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCR001I01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+
+  GR_ZALV1->MV_UCOMM = GR_ZALV1->MV_OKCODE.
+  CLEAR GR_ZALV1->MV_OKCODE.
+
+  CASE GR_ZALV1->MV_UCOMM.
+
+    WHEN 'BACK' OR 'EXIT' OR 'CANC'.
+
+      PERFORM ucomm_back.
+
+  ENDCASE.
+
+ENDMODULE.                 " USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0110  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE user_command_0110 INPUT.
+
+GR_ZALV2->MV_UCOMM = GR_ZALV2->MV_OKCODE.
+CLEAR GR_ZALV2->MV_OKCODE.
+
+CASE GR_ZALV2->MV_UCOMM.
+
+    WHEN 'BACK' OR 'EXIT' OR 'CANC'.
+
+      PERFORM ucomm_back_0110.
+
+  ENDCASE.
+
+ENDMODULE.                 " USER_COMMAND_0110  INPUT
