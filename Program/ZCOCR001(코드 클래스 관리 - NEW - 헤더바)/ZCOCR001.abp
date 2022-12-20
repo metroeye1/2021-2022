@@ -1,5 +1,5 @@
 ************************************************************************
-* ÇÁ·Î±×·¥ ¸í   : ÄÚµå Å¬·¡½º °ü¸®
+* í”„ë¡œê·¸ëž¨ ëª…   : ì½”ë“œ í´ëž˜ìŠ¤ ê´€ë¦¬
 ************************************************************************
 
 
@@ -37,16 +37,16 @@ AT SELECTION-SCREEN OUTPUT.
   PERFORM AT_SELECTION_SCREEN_OUTPUT.
   
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_ZMODU-LOW.
-  PERFORM F4_ZMODULE USING S_ZMODU-LOW.
+  PERFORM F4_ZMODULE USING 'S_ZMODU-LOW'.
 
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_ZMODU-HIGH.
-  PERFORM F4_ZMODULE USING S_ZMODU-HIGH.
+  PERFORM F4_ZMODULE USING 'S_ZMODU-HIGH'.
 
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_CLASS-LOW.
-  PERFORM F4_CLASS USING S_CLASS-LOW.
+  PERFORM F4_CLASS USING 'S_CLASS-LOW'.
 
 AT SELECTION-SCREEN ON VALUE-REQUEST FOR S_CLASS-HIGH.
-  PERFORM F4_CLASS USING S_CLASS-HIGH.
+  PERFORM F4_CLASS USING 'S_CLASS-HIGH'.
 
 *----------------------------------------------------------------------*
 *   START-OF-SELECTION
@@ -61,49 +61,49 @@ START-OF-SELECTION.
 
 *Text elements
 *---------------------------------------------------------
-* 001 ¼±ÅÃ¿É¼Ç
-* 101 ¸ðµâÀ» ÀÔ·ÂÇÏ¼¼¿ä
-* 102 Å¬·¡½º¸¦ ÀÔ·ÂÇÏ¼¼¿ä
-* 103 ¸ÕÀú ÀúÀåÇÏ¼¼¿ä.
-* 201 ÀÛ¾÷±¸ºÐ
-* 202 Á÷Á¢ ÀÔ·Â
-* 203 Å¸ Client¿¡¼­ º¹»ç
-* 301 ÄÚµå Å¬·¡½º
-* 303 ÄÚµå Å¬·¡½º µ¥ÀÌÅÍ
-* 701 ÄÚµå Å¬·¡½º °ü¸®
-* 702 ÄÚµåÅ¬·¡½º ÇÊµå¸¦ ¼³Á¤ÇÏ¼¼¿ä
-* 703 ÀúÀåµÈ µ¥ÀÌÅÍ´Â »èÁ¦ÇÒ ¼ö ¾ø½À´Ï´Ù.
-* 704 ÇÊµå »ç¿ë¿©ºÎ ¹× ³»¿ªÀ» ¼³Á¤ÇÏ¼¼¿ä
-* 801 ÄÚµåÅ¬·¡½º º¯°æ»çÇ×ÀÌ ÀÖ½À´Ï´Ù. º¯°æ ³»¿ëÀÌ Áö¿öÁý´Ï´Ù.
-* 802 °è¼ÓÇÏ½Ã°Ú½À´Ï±î?
-* 803 ÄÚµåÅ¬·¡½º ÇÊµå º¯°æ»çÇ×ÀÌ ÀÖ½À´Ï´Ù. º¯°æ ³»¿ëÀÌ Áö¿öÁý´Ï´Ù.
-* 804 ÄÚµåÅ¬·¡½º µ¥ÀÌÅ¸ º¯°æ»çÇ×ÀÌ ÀÖ½À´Ï´Ù. º¯°æ ³»¿ëÀÌ Áö¿öÁý´Ï´Ù.
-* 805 ¸ðµç µ¥ÀÌÅÍ°¡ ÄÚµåÅ¬·¡½º¿Í ÇÔ²² »èÁ¦µË´Ï´Ù.
-* 806 ÄÚµåÅ¬·¡½º ¹× µ¥ÀÌÅÍ º¯°æ»çÇ×ÀÌ ÀÖ½À´Ï´Ù. º¯°æ ³»¿ëÀÌ Áö¿öÁý´Ï´Ù.
-* 807 ÀúÀåµÈ µ¥ÀÌÅÍ¸¦ »èÁ¦ÇÕ´Ï´Ù.
-* 901 È®ÀÎ
-* B01   ÇÊµåÁ¤ÀÇ
-* B02 º¯°æ
-* B03 Á¶È¸
-* B04 Ãß°¡
-* B05   ¶óÀÎ»èÁ¦
-* B06 ÀúÀå
-* B07   µ¥ÀÌÅÍ »èÁ¦
-* B08   ÇÊµå ¶óº§ º¯°æ
-* B08 À¯Áöº¸¼ö ºä
-* E01 ÇØ´ç RFC ¸ñÀûÁö°¡ Á¸ÀçÇÏÁö ¾Ê½À´Ï´Ù.
-* E02 RFC ¸ñÀûÁö°¡ R/3 ½Ã½ºÅÛÀÌ ¾Æ´Õ´Ï´Ù.
-* E03 ÀÛ¾÷ÀÌ Ãë¼Ò µÆ½À´Ï´Ù.
-* E05 ´ë»ó Å×ÀÌºíÀÌ Á¸ÀçÇÏÁö ¾Ê½À´Ï´Ù.
-* M01 Á¶°Ç¿¡ ÇØ´çÇÏ´Â µ¥ÀÌÅÍ »èÁ¦ ÈÄ º¹»çÇÕ´Ï´Ù. °è¼Ó ÁøÇàÇÏ½Ã°Ú½À´Ï±î?
+* 001 ì„ íƒì˜µì…˜
+* 101 ëª¨ë“ˆì„ ìž…ë ¥í•˜ì„¸ìš”
+* 102 í´ëž˜ìŠ¤ë¥¼ ìž…ë ¥í•˜ì„¸ìš”
+* 103 ë¨¼ì € ì €ìž¥í•˜ì„¸ìš”.
+* 201 ìž‘ì—…êµ¬ë¶„
+* 202 ì§ì ‘ ìž…ë ¥
+* 203 íƒ€ Clientì—ì„œ ë³µì‚¬
+* 301 ì½”ë“œ í´ëž˜ìŠ¤
+* 303 ì½”ë“œ í´ëž˜ìŠ¤ ë°ì´í„°
+* 701 ì½”ë“œ í´ëž˜ìŠ¤ ê´€ë¦¬
+* 702 ì½”ë“œí´ëž˜ìŠ¤ í•„ë“œë¥¼ ì„¤ì •í•˜ì„¸ìš”
+* 703 ì €ìž¥ëœ ë°ì´í„°ëŠ” ì‚­ì œí•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤.
+* 704 í•„ë“œ ì‚¬ìš©ì—¬ë¶€ ë° ë‚´ì—­ì„ ì„¤ì •í•˜ì„¸ìš”
+* 801 ì½”ë“œí´ëž˜ìŠ¤ ë³€ê²½ì‚¬í•­ì´ ìžˆìŠµë‹ˆë‹¤. ë³€ê²½ ë‚´ìš©ì´ ì§€ì›Œì§‘ë‹ˆë‹¤.
+* 802 ê³„ì†í•˜ì‹œê² ìŠµë‹ˆê¹Œ?
+* 803 ì½”ë“œí´ëž˜ìŠ¤ í•„ë“œ ë³€ê²½ì‚¬í•­ì´ ìžˆìŠµë‹ˆë‹¤. ë³€ê²½ ë‚´ìš©ì´ ì§€ì›Œì§‘ë‹ˆë‹¤.
+* 804 ì½”ë“œí´ëž˜ìŠ¤ ë°ì´íƒ€ ë³€ê²½ì‚¬í•­ì´ ìžˆìŠµë‹ˆë‹¤. ë³€ê²½ ë‚´ìš©ì´ ì§€ì›Œì§‘ë‹ˆë‹¤.
+* 805 ëª¨ë“  ë°ì´í„°ê°€ ì½”ë“œí´ëž˜ìŠ¤ì™€ í•¨ê»˜ ì‚­ì œë©ë‹ˆë‹¤.
+* 806 ì½”ë“œí´ëž˜ìŠ¤ ë° ë°ì´í„° ë³€ê²½ì‚¬í•­ì´ ìžˆìŠµë‹ˆë‹¤. ë³€ê²½ ë‚´ìš©ì´ ì§€ì›Œì§‘ë‹ˆë‹¤.
+* 807 ì €ìž¥ëœ ë°ì´í„°ë¥¼ ì‚­ì œí•©ë‹ˆë‹¤.
+* 901 í™•ì¸
+* B01   í•„ë“œì •ì˜
+* B02 ë³€ê²½
+* B03 ì¡°íšŒ
+* B04 ì¶”ê°€
+* B05   ë¼ì¸ì‚­ì œ
+* B06 ì €ìž¥
+* B07   ë°ì´í„° ì‚­ì œ
+* B08   í•„ë“œ ë¼ë²¨ ë³€ê²½
+* B08 ìœ ì§€ë³´ìˆ˜ ë·°
+* E01 í•´ë‹¹ RFC ëª©ì ì§€ê°€ ì¡´ìž¬í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
+* E02 RFC ëª©ì ì§€ê°€ R/3 ì‹œìŠ¤í…œì´ ì•„ë‹™ë‹ˆë‹¤.
+* E03 ìž‘ì—…ì´ ì·¨ì†Œ ëìŠµë‹ˆë‹¤.
+* E05 ëŒ€ìƒ í…Œì´ë¸”ì´ ì¡´ìž¬í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
+* M01 ì¡°ê±´ì— í•´ë‹¹í•˜ëŠ” ë°ì´í„° ì‚­ì œ í›„ ë³µì‚¬í•©ë‹ˆë‹¤. ê³„ì† ì§„í–‰í•˜ì‹œê² ìŠµë‹ˆê¹Œ?
 
 *Selection texts
 *---------------------------------------------------------
-* P_INP           Á÷Á¢ ÀÔ·Â
-* P_RFC           Å¸ Client¿¡¼­ º¹»ç
-* P_RFCDES        Source RFC ¸ñÀûÁö
-* S_CLASS         . ÄÚµå Å¬·¡½º
-* S_ZMODU         . ¸ðµâ
+* P_INP           ì§ì ‘ ìž…ë ¥
+* P_RFC           íƒ€ Clientì—ì„œ ë³µì‚¬
+* P_RFCDES        Source RFC ëª©ì ì§€
+* S_CLASS         . ì½”ë“œ í´ëž˜ìŠ¤
+* S_ZMODU         . ëª¨ë“ˆ
 
 *Messages
 *----------------------------------------------------------
