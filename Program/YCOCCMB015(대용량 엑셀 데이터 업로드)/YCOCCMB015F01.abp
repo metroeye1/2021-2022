@@ -1,0 +1,232 @@
+*&---------------------------------------------------------------------*
+*&  Include           YCOCCMRB015F01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  POPUP_FILENAME
+*&---------------------------------------------------------------------*
+FORM POPUP_FILENAME USING P_FILE .
+
+	DATA: LT_FILE TYPE FILETABLE,
+	      LV_RC   TYPE I.
+	      
+	CLEAR: P_FILE, LT_FILE[], LV_RC.
+	
+	CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_OPEN_DIALOG
+	  EXPORTING
+	    WINDOW_TITLE        = 'SELECT FILE'
+	    DEFAULT_FILENAME    = '*.XLS'
+	    INITIAL_DIRECTORY   = 'C:\'
+	    MULTISELECTION      = ' '
+	  CHANGING
+	    FILE_TABLE          = LT_FILE
+	    RC                  = LV_RC.
+	    
+	TRY.
+	  P_FILE = LT_FILE[ 1 ]-FILENAME.
+	  CATCH CX_SY_ITAB_LINE_NOT_FOUND.
+	ENDTRY.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_TNAME
+*&---------------------------------------------------------------------*
+FORM CHECK_TNAME  USING     P_TNAME
+	                CHANGING  CV_ERROR.
+
+  DATA: LS_DYNPREAD TYPE DYNPREAD,
+  	    LT_DYNPREAD TYPE TABLE OF DYNPREAD.
+  CLEAR CV_ERROR.
+  
+  SELECT *
+  	FROM DD02L
+   WHERE TABNAME EQ @P_TNAME
+    INTO @DATA(LS_DD02L) UP TO 1 ROWS.
+  ENDSELECT.
+  
+  IF LS_DD02L-TABCLASS <> 'TRANSP'.
+  	CV_ERROR = ABAP_TRUE.
+  	CLEAR P_TNAME.
+  	RETURN.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_TABLE
+*&---------------------------------------------------------------------*
+FORM SET_TABLE.
+
+  CALL METHOD CL_ALV_TABLE_CREATE=>CREATE_DYNAMIC_TABLE
+    EXPORTING 
+      IT_FIELDCATALOG = GT_FIELDCAT
+    IMPORTING 
+      EP_TABLE        = GO_TABLE.
+      
+  ASSIGN GO_TABLE->* TO <TABLE>.
+  CREATE DATA GO_LIKE LIKE LINE OF <TABLE>.
+  ASSIGN GO_LINE ->* TO <WA>.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  UPLOAD_FROM_LOCAL
+*&---------------------------------------------------------------------*
+FORM UPLOAD_FROM_LOCAL
+
+	DATA LV_SEQNO TYPE NUMC10.
+	
+	FIELD-SYMBOLS <LT_DATA> TYPE STANDARD TABLE.
+	APPEND SPACE TO EMPTY_TAB.
+	
+	"기존 데이터 삭제
+	IF P_ADD IS INITIAL.
+	  DELETE FROM (P_TNAME).
+	ELSE.
+	  SELECT MAX( SEQNO )
+	  	FROM (P_TNAME)
+	  	INTO @LV_SEQNO.
+	ENDIF.
+	
+	LR_DESCR ?= CL_ABAP_STRUCTDESCR=>DESCRIBE_BY_DATA_REF( GO_LINE ).
+	LT_DFIES  = CL_SALV_DATA_DESCR=>READ_STRUCTDESCR( LR_DESCR ).
+	IV_END_COL = CONV I( LINES( LT_DFIES ) ).
+	
+	"진행상태
+	ZCL_COC_COMM=>SHOW_PROGRESS_PERCENTAGE( IV_TEXT = CONV #( 'Reading Excel File...' ) ).
+	
+	IF APPLICATION-HEADER = SPACE OR APPLICATION-HANDLE = -1.
+	  CREATE OBJECT APPLICATION 'Excel.Application'.
+	  M_MESSAGE.
+	ENDIF.
+	CALL METHOD OF APPLICATION 'Workbooks' = WORKBOOK.
+	M_MESSAGE.
+	CALL METHOD OF WORKBOOK 'Open' EXPORTING #1 = P_FILE.
+	M_MESSAGE.
+	
+	GET_PROPERTY OF APPLICATION 'ACTIVESHEET' = WORKSHEET.
+	M_MESSAGE.
+	
+	DO.
+	
+	  IF SY-INDEX = 1.
+	  	IV_BEGIN_ROW = 2.
+	  ELSE.
+	  	IV_BEGIN_ROW = ( SY-INDEX - 1 ) * P_MAX + 1.
+	  ENDIF.
+	  
+	  IV_END_ROW = SY-INDEX * P_MAX.
+	  
+	  "엑셀 최대 라인 확인
+	  IF IV_BEGIN_ROW > 1048576.
+	  	EXIT.
+	  ENDIF.
+	  IF IV_END_ROW > 1048576.
+	  	IV_END_ROW = 1048576.
+	  ENDIF.
+	
+	  CALL METHOD OF WORKSHEET 'Cells' = H_CELL
+	    EXPORTING #1 = IV_BEGIN_ROW #2 = 1.
+	  M_MESSAGE.
+	
+	  CALL METHOD OF WORKSHEET 'Cells' = H_CELL1
+	    EXPORTING #1 = IV_END_ROW #2 = IV_END_COL.
+	  M_MESSAGE.
+	
+	  CALL METHOD OF WORKSHEET 'RANGE' = RANGE
+	    EXPORTING #1 = H_CELL #2 = H_CELL1.
+	  M_MESSAGE.
+	  CALL METHOD OF RANGE 'SELECT'.
+	  M_MESSAGE.
+* copy to Clipboard
+	  CALL METHOD OF RANGE 'COPY'.
+	  M_MESSAGE.
+* free object application
+	  M_MESSAGE.
+
+* Without flush, CLPB_IMPORT does not find the DATA
+    CLEAR: EXCEL_TAB[].
+    CALL FUNCTION 'CONTROL_FLUSH'
+      EXCEPTIONS
+        OTHERS = 3.
+        
+    CALL FUNCTION 'CLPB_IMPORT'
+      TABLES
+        DATA_TAB   = EXCEL_TAB
+      EXCEPTIONS
+        CLPB_ERROR = 1
+        OTHERS     = 3.
+    
+    IF SY-SUBRC <> 0. EXIT. ENDIF.
+    
+    IF EMPTY_TAB[] IS INITIAL.
+    	EXIT.
+    ENDIF.
+    
+    IF EXCEL_TAB[] IS INITIAL.
+    	EXIT.
+    ELSE.
+    	
+      LOOP AT EXCEL_TAB ASSIGNING FIELD-SYMBOL(<FS_EXCEL_TAB>).
+      	
+      	SPLIT <FS_EXCEL_TAB> AT CL_ABAP_CHAR_UTILITIES=>HORIZONTAL_TAB INTO TABLE DATA(RESULT_TAB).
+      		
+        LOOP AT RESULT_TAB ASSIGNING FIELD-SYMBOL(<RESULT_TAB>).
+        	
+        	DATA(LV_TABIX) = SY-TABIX.
+        	
+        	AT FIRST.
+        	  "첫번짹 컬럼 데이터 없으면 SKIP
+        	  IF <RESULT_TAB> IS INITIAL.
+        	  	EXIT.
+        	  ENDIF.
+        	  
+        	  LV_SEQNO = LV_SEQNO + 1.
+        	  APPEND INITIAL LINE TO <TABLE> ASSIGNING FIELD-SYMBOL(<FS_DATA>).
+        	  
+        	  ASSIGN COMPONENT LV_TABIX + 1 OF STRUCTURE <FS_DATA> TO FIELD-SYMBOL(<FS_FIELD>).	
+        	  <FS_FIELD> = LV_SEQNO.
+        	ENDAT.
+        	
+        	ASSIGN COMPONENT LV_TABIX + 2 OF STRUCTURE <FS_DATA> TO <FS_FIELD>.	
+        	IF SY-SUBRC = 0.
+        	  <FS_FIELD> = <RESULT_TAB>.
+        	ENDIF.
+        	
+        ENDLOOP.
+        
+        CLEAR: RESULT_TAB[].
+      ENDLOOP.
+      
+      TRY.
+        MODIFY (P_TNAME) FROM TABLE <TABLE>.
+        CATCH CX_ROOT INTO DATA(OREF).
+          DATA(LV_TEXT) = OREF->GET_TEXT( ).
+          MESSAGE S000 WITH TEXT-E02 DISPLAY LIKE 'E'.
+          RETURN.
+      ENDTRY.
+    
+      MESSAGE S000 WITH TEXT-S01.
+      COMMIT WORK.
+      
+      CLEAR: <TABLE>.
+      
+      "진행상태
+      ZCL_COC_COMM=>SHOW_PROGRESS_PERCENTAGE( IV_TEXT = CONV #( CONDENSE( |{ LV_SEQNO ALPHA = OUT }| ) && '건 저장 중 입니다...' ) ). "LINES ARE BEING SAVED..."
+    
+    ENDIF.
+    
+  ENDDO.
+  
+  "CLEAR Clipboard
+  CLEAR EXCEL_TAB[].
+  CALL FUNCTION 'CLPB_EXPORT'
+    TABLES
+      DATA_TAB = EXCEL_TAB.
+      
+  SET PROPERTY OF APPLICATION 'CutCopyMode' = 0.
+  M_MESSAGE.
+  
+  CALL METHOD OF APPLICATION 'QUIT'.
+  M_MESSAGE.
+  FREE OBJECT APPLICATION.
+  M_MESSAGE.
+  
+ENDFORM.

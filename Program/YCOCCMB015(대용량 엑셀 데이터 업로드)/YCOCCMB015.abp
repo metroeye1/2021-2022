@@ -1,0 +1,91 @@
+************************************************************************
+* 모듈             : CO
+* Type            : REPORT
+* Program ID      : YCOCCMB015
+* T-Code          : YCOCCMB015
+* Create Date     : 2021.05.12
+* Description     : 대용량 엑셀 파일 한번만 열고 분할로 읽어서 테이블에 저장하기
+************************************************************************
+*                       MODIFICATION LOG                               *
+*----------------------------------------------------------------------*
+*  DATE            AUTHORS                  DESCRIPTION                *
+*----------------------------------------------------------------------*
+*                                                                      *
+************************************************************************
+* Comment : 
+************************************************************************
+REPORT YCOCCMB015 MESSAGE-ID 0K.
+
+*----------------------------------------------------------------------*
+* INCLUDE
+*----------------------------------------------------------------------*
+INCLUDE YCOCCMB015T01.
+INCLUDE YCOCCMB015F01.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR P_FILE.
+  PERFORM POPUP_FILENAME USING P_FILE.
+
+AT SELECTION-SCREEN ON P_TNAME.
+	PERFORM CHECK_TNAME USING P_TNAME CHANGING GV_ERROR.
+	IF GV_ERROR EQ ABAP_TRUE.
+	  MESSAGE S000 WITH TEXT-M01 DISPLAY LIKE 'E'.
+	  CLEAR GV_ERROR.
+	ELSE.
+	  CONCATENATE 'C:\' P_TNAME INTO P_FILE.
+	ENDIF.
+
+AT SELECTION-SCREEN.
+	CLEAR: GT_FIELDCAT[].
+	PERFORM CHECK_TNAME USING P_TNAME CHANGING GV_ERROR.
+	IF GV_ERROR EQ ABAP_TRUE.
+	  MESSAGE S000 WITH TEXT-M01 DISPLAY LIKE 'E'.
+	  CLEAR GV_ERROR.
+	ELSE.
+	  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+			EXPORTING
+			  I_STRUCTURE_NAME = P_TNAME
+			CHANGING
+			  CT_FIELDCAT      = GT_FIELDCAT.
+	  IF SY-SUBRC <> 0.
+	    MESSAGE E000 WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+	  ENDIF.
+	ENDIF.
+	
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+	PERFORM SET_TABLE.
+
+*----------------------------------------------------------------------*
+* END-OF-SELECTION
+*----------------------------------------------------------------------*
+END-OF-SELECTION.
+	PERFORM UPLOAD_FROM_LOCAL.
+
+
+*Text elements
+*---------------------------------------------------------
+* E01 Excel Upload 중 오류가 발생했습니다.
+* E02 Error occured during uploading Excel File
+* M01 Check Table Name
+* S01 Upload Succeeded
+* T01 Selections
+* T02 Type
+
+*Selection texts
+*---------------------------------------------------------
+* P_ADD 기존 데이터에 추가 "ADD TO EXISTING DATA
+* P_FILE 파일경로 "FILE PATH
+* P_MAX 분할처리건수 "EXEC. LINES AT ONCE
+* P_TNAME 테이블명 "TABLE NAME
+
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: 0K
+*000   & & & &

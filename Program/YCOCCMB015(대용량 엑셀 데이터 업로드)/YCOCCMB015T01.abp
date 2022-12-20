@@ -1,0 +1,73 @@
+*&---------------------------------------------------------------------*
+*&  Include           YCOCCMRB015T01
+*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* TABLES
+*----------------------------------------------------------------------*
+TABLES: RLGRAP, DD02L.
+
+*----------------------------------------------------------------------*
+* GLOVAL VARIABLES
+*----------------------------------------------------------------------*
+DATA: GV_ERROR    TYPE C,
+	    G_FILENAME  TYPE LOCALFILE,
+	    GS_FIELDCAT TYPE LVC_S_FCAT,
+	    GT_FIELDCAT TYPE LVC_T_FCAT.
+	    
+*----------------------------------------------------------------------*
+* INTERNAL TABLE
+*----------------------------------------------------------------------*
+DATA: BEGIN OF GS_FIELD,
+	      NAME(60),
+      END   OF GS_FIELD,
+      GT_FIELD LIKE TABLE OF GS_FIELD.
+
+DATA: GO_TABLE TYPE REF TO DATA,
+	    GO_LINE  TYPE REF TO DATA.
+	    
+FIELD-SYMBOLS: <TABLE> TYPE TABLE,
+               <WA>, <CONV>,
+               <F1>, <F2>,
+               <FIELD>.
+
+DATA: EXCEL_TAB    TYPE P99SG_SENDER,
+	    EMPTY_TAB    TYPE P99SG_SENDER,
+	    SEPARATOR    TYPE C,
+	    APPLICATION  TYPE OLE2_OBJECT,
+	    WORKBOOK     TYPE OLE2_OBJECT,
+	    RANGE        TYPE OLE2_OBJECT,
+	    WORKSHEET    TYPE OLE2_OBJECT,
+	    H_CELL       TYPE OLE2_OBJECT,
+	    H_CELL1      TYPE OLE2_OBJECT,
+	    IV_END_COL   TYPE I,
+	    IV_END_ROW   TYPE I,
+	    IV_BEGIN_ROW TYPE I,
+	    IV_ROW_MAX   TYPE I VALUE '3000000'.
+	    
+DATA: LT_DFIES     TYPE DDFIELDS,
+	    LV_CONV_ROW  TYPE I,	  
+	    LT_CELLS     TYPE ZCOCCMT004, "[ZCOCCMT004] IS A TABLE TYPE OBJECT OF A STRUCTURE [ZCOCCMS004] WITH 3 FIELDS - [ROW] NUMC(6), [COL] NUMC(6), [VALUE] TEXT4096
+	    LO_SREF      TYPE REF TO DATA,
+	    LR_DESCR     TYPE REF TO CL_ABAP_STRUCTDESCR.  
+	    
+DEFINE M_MESSAGE.
+  CASE SY-SUBRC.
+  	WHEN 0.
+  	WHEN 1.
+  	  MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+  	     WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  	WHEN OTHERS.
+  	  RAISE UPLOAD_OLE.
+  ENDCASE.
+END-OF-DEFINITION.
+
+*----------------------------------------------------------------------*
+* SELECTION-SCREEN
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-T01.
+
+PARAMETERS: P_TNAME LIKE DD02L-TABNAME OBLIGATORY MEMORY ID YCOCCMRB015_1,
+	          P_FILE  TYPE LOCALFILE MOMERY ID YCOCCMRB015_2,
+	          P_MAX   TYPE I DEFAULT 50000,
+	          P_ADD   AS CHECKBOX DEFAULT 'X'.
+SELECTION-SCREEN END OF BLOCK B1.
