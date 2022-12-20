@@ -10,17 +10,17 @@ FORM INITIALIZATION .
   GR_ZAVL2 = NEW #( ).
   GR_ZAVL3 = NEW #( ).
 
-  "√÷√  ¡∂»∏ ∏µÂ∑Œ º≥¡§
+  "ÏµúÏ¥à Ï°∞Ìöå Î™®ÎìúÎ°ú ÏÑ§Ï†ï
   GV_MODE1 = C_DISP.
   GV_MODE2 = C_DISP.
 
   "SET TITLE
   GV_TITLE = ZCL_COC_UTIL=>GET_TITLE( SY-CPROG ).
 
-  "ªˆªÛ « µÂ ªÁøÎ ≈¨∑°Ω∫
-  " GR_COL_CLASS[] = VALUE #( ( SIGN = 'I' OPTION = 'EQ' LOW = 'A07' )    "∑ª≈ª º’¿Õ¡∂∞ﬂ«•-«◊∏ÒæÁΩƒ
-  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'A32' )    "¿œΩ√∫“ º’¿Õ¡∂∞ﬂ«•-«◊∏ÒæÁΩƒ
-  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'B13' ) ). "≈∏∞Ë¡§ ¿‘√‚∞Ì ∑π∆˜∆Æ - µø¿˚ « µÂ
+  "ÏÉâÏÉÅ ÌïÑÎìú ÏÇ¨Ïö© ÌÅ¥ÎûòÏä§
+  " GR_COL_CLASS[] = VALUE #( ( SIGN = 'I' OPTION = 'EQ' LOW = 'A07' )    "Î†åÌÉà ÏÜêÏùµÏ°∞Í≤¨Ìëú-Ìï≠Î™©ÏñëÏãù
+  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'A32' )    "ÏùºÏãúÎ∂à ÏÜêÏùµÏ°∞Í≤¨Ìëú-Ìï≠Î™©ÏñëÏãù
+  "                           ( SIGN = 'I' OPTION = 'EQ' LOW = 'B13' ) ). "ÌÉÄÍ≥ÑÏ†ï ÏûÖÏ∂úÍ≥† Î†àÌè¨Ìä∏ - ÎèôÏ†Å ÌïÑÎìú
   SELECT 'I' AS SIGN, 'EQ' AS OPTION, FIELD05 AS LOW FROM ZTCO2002
    WHERE ZMODULE = 'CO' AND CLASS = 'Z00'
     INTO CORRESPONDING FIELDS OF TABLE @GR_COL_CLASS.
@@ -37,10 +37,10 @@ FORM START_OF_SELECTION .
   CASE ABAP_ON.
   	WHEN P_INP.
   	
-		  "ƒ⁄µÂ ∏∂Ω∫≈Õ µ•¿Ã≈Õ ¿–æÓø¿±‚
+		  "ÏΩîÎìú ÎßàÏä§ÌÑ∞ Îç∞Ïù¥ÌÑ∞ ÏùΩÏñ¥Ïò§Í∏∞
 		  PERFORM GET_DATA.
 
-		  "ALV µ•¿Ã≈Õ ∞°∞¯
+		  "ALV Îç∞Ïù¥ÌÑ∞ Í∞ÄÍ≥µ
 		  PERFORM GEN_ALV USING 1.
 
 		  "Call screen
@@ -48,7 +48,7 @@ FORM START_OF_SELECTION .
 		  
 		WHEN P_RFC.
 		
-		  "SOURCE RFC ∏Ò¿˚¡ˆ∑Œ∫Œ≈Õ µ•¿Ã≈Õ ∞°¡ÆøÕº≠ ¿˙¿Â
+		  "SOURCE RFC Î™©Ï†ÅÏßÄÎ°úÎ∂ÄÌÑ∞ Îç∞Ïù¥ÌÑ∞ Í∞ÄÏ†∏ÏôÄÏÑú Ï†ÄÏû•
 		  PERFORM GET_SAVE_DATA_FROM_RFC_DEST.
 		  
   ENDCASE.
@@ -245,7 +245,7 @@ FORM HANDLE_USER_COMMAND  USING   SENDER
         WHEN '&SAV'.   "Save
           PERFORM SAVE_ROW3.
 
-        WHEN '&LBL'.   "« µÂ ∂Û∫ß ∫Ø∞Ê
+        WHEN '&LBL'.   "ÌïÑÎìú ÎùºÎ≤® Î≥ÄÍ≤Ω
           PERFORM SAVE_ROW3.
 
       ENDCASE.
@@ -308,7 +308,7 @@ FORM DELETE_ROW .
   GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
 
   IF LT_ROW IS INITIAL.
-    MESSAGE I000 WITH 'ªË¡¶«“ «‡¿ª ∏’¿˙ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE ZCOC_E. EXIT.
+    MESSAGE I000 WITH 'ÏÇ≠Ï†úÌï† ÌñâÏùÑ Î®ºÏ†Ä ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE ZCOC_E. EXIT.
   ELSE.
 
     SORT LT_ROW BY INDEX DESCENDING.
@@ -345,7 +345,7 @@ FORM DELETE_ROW3 .
   GR_ZALV3->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
 
   IF LT_ROW IS INITIAL.
-    MESSAGE I000 WITH 'ªË¡¶«“ «‡¿ª ∏’¿˙ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE ZCOC_E. EXIT.
+    MESSAGE I000 WITH 'ÏÇ≠Ï†úÌï† ÌñâÏùÑ Î®ºÏ†Ä ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE ZCOC_E. EXIT.
   ELSE.
 
     SORT LT_ROW BY INDEX DESCENDING.
@@ -415,7 +415,7 @@ FORM SAVE_ROW1 .
   GV_MODE1 = C_DISP.
   PERFORM SHOW_ALV USING 1.
 
-  MESSAGE S000 WITH 'Ω««‡¿Ã º∫∞¯¿˚¿∏∑Œ øœ∑·µ∆Ω¿¥œ¥Ÿ.'.
+  MESSAGE S000 WITH 'Ïã§ÌñâÏù¥ ÏÑ±Í≥µÏ†ÅÏúºÎ°ú ÏôÑÎ£åÎêêÏäµÎãàÎã§.'.
 
 ENDFORM.                    " SAVE_ROW1
 *&---------------------------------------------------------------------*
@@ -478,7 +478,7 @@ FORM SAVE_ROW2 .
   GV_MODE3 = C_DISP.
   PERFORM SHOW_ALV USING 3.
 
-  MESSAGE S000 WITH 'Ω««‡¿Ã º∫∞¯¿˚¿∏∑Œ øœ∑·µ∆Ω¿¥œ¥Ÿ.'.
+  MESSAGE S000 WITH 'Ïã§ÌñâÏù¥ ÏÑ±Í≥µÏ†ÅÏúºÎ°ú ÏôÑÎ£åÎêêÏäµÎãàÎã§.'.
 
   LEAVE TO SCREEN 0.
 
@@ -513,7 +513,7 @@ FORM SAVE_ROW3 .
 
     CHECK LV_SAVE EQ C_X.
 
-    "≈∞ « µÂ ¡ﬂ∫π √º≈©
+    "ÌÇ§ ÌïÑÎìú Ï§ëÎ≥µ Ï≤¥ÌÅ¨
     DATA(LV_DESC)  = |{ SPACE }|.
     DATA(LV_WHERE) = `ZMODULE = ` && '''' && <FS_ALV3>-ZMODULE && '''' && ` AND ` &&
                      `CLASS = `   && '''' && <FS_ALV3>-CLASS && ''''.
@@ -533,7 +533,7 @@ FORM SAVE_ROW3 .
     ENDLOOP.
 
     IF LV_CNT > 1.
-      MESSAGE I000 WITH '≈∞ µ•¿Ã≈Õ ¡ﬂ∫π' LV_DESC DISPLAY LIKE 'E'.
+      MESSAGE I000 WITH 'ÌÇ§ Îç∞Ïù¥ÌÑ∞ Ï§ëÎ≥µ' LV_DESC DISPLAY LIKE 'E'.
       DATA(LV_ERROR) = C_X.
       EXIT.
     ENDIF.
@@ -576,7 +576,7 @@ FORM SAVE_ROW3 .
   GV_MODE3 = C_DISP.
   PERFORM SHOW_ALV USING 3.
 
-  MESSAGE S000 WITH 'Ω««‡¿Ã º∫∞¯¿˚¿∏∑Œ øœ∑·µ∆Ω¿¥œ¥Ÿ.'.
+  MESSAGE S000 WITH 'Ïã§ÌñâÏù¥ ÏÑ±Í≥µÏ†ÅÏúºÎ°ú ÏôÑÎ£åÎêêÏäµÎãàÎã§.'.
 
 ENDFORM.                    " SAVE_ROW3
 *&---------------------------------------------------------------------*
@@ -590,69 +590,91 @@ FORM HANDLE_DOUBLE_CLICK  USING  SENDER
   DATA: LV_CHANGED3 TYPE C,
         LV_SET      TYPE C.
 
-  ASSIGN GT_ALV1[ P_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
-  CHECK SY-SUBRC = 0.
+  CASE P_SENDER.
 
-  GR_ZALV1->MO_GIRD->SET_SELECTED_ROWS( IT_INDEX_ROWS = VAUE #( ( P_ROW ) ) ).
+    WHEN GR_ZALV1->MO_GRID.
 
-  IF <FS_ALV1>-ZMODULE IS INITIAL.
-    MESSAGE I000(0K) WITH TEXT-101 DISPLAY LIKE C_E. EXIT.
-  ENDIF.
+      ASSIGN GT_ALV1[ P_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV1>).
+      CHECK SY-SUBRC = 0.
+     
+      GR_ZALV1->MO_GIRD->SET_SELECTED_ROWS( IT_INDEX_ROWS = VAUE #( ( P_ROW ) ) ).
+     
+      IF <FS_ALV1>-ZMODULE IS INITIAL.
+        MESSAGE I000(0K) WITH TEXT-101 DISPLAY LIKE C_E. EXIT.
+      ENDIF.
+     
+      IF <FS_ALV1>-CLASS IS INITIAL.
+        MESSAGE I000(0K) WITH TEXT-102 DISPLAY LIKE C_E. EXIT.
+      ENDIF.
+     
+      IF NOT LINE_EXISTS( GT_ALV1[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] ).
+        MESSAGE I000(0K) WITH TEXT-103 DISPLAY LIKE C_E. EXIT.
+      ENDIF.
+     
+      "check changed
+      PERFORM CHECK_CHANGED USING 3 CHANGING LV_CHANGED3.
+     
+      IF LV_CHANGED3 = C_X.
+        IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-804 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
+          MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE C_E. EXIT.
+        ENDIF.
+      ENDIF.
+     
+      GV_ZMODULE = <FS_ALV1>-ZMODULE.
+      GV_CLASS   = <FS_ALV1>-CLASS.
+     
+      "Popup 0110 screen, if no setting for fields.
+      "but show alv3 for data.
+      PERFORM CHECK_SETTING_FIELDS CHANGING LV_SET.
+     
+      IF LV_SET = C_X.
+     
+        "show alv3
+        GV_MODE3 = C_DISP.
+        
+        "ÌÉêÏÉâÎèÑÏõÄÎßê ÌïÑÎìú Îì±Î°ù
+        DATA: LT_LVC_T_F4 TYPE LVC_T_F4.
+        IF GV_CLASS IN GR_COL_CLASS.
+          GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( VALUE #( ( FIELDNAME = 'FIELD06' REGISTER = ABAP_TRUE ) ) ).
+        ELSE.
+          CLEAR LT_LVC_T_F4.
+          GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( LT_LVC_T_F4 ).
+        ENDIF.
+        
+        PERFORM SHOW_ALV USING 3.
+     
+      ELSE.
+     
+        MESSAGE I000(0K) WITH TEXT-704.
+     
+        PERFORM GEN_ALV USING 2.
+     
+*        CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+	PERFORM CALL_FIELD_SELECTION_POPUP.
 
-  IF <FS_ALV1>-CLASS IS INITIAL.
-    MESSAGE I000(0K) WITH TEXT-102 DISPLAY LIKE C_E. EXIT.
-  ENDIF.
+        PERFORM SHOW_ALV USING 3.
+     
+      ENDIF.
 
-  IF NOT LINE_EXISTS( GT_ALV1[ ZMODULE = <FS_ALV1>-ZMODULE CLASS = <FS_ALV1>-CLASS ] ).
-    MESSAGE I000(0K) WITH TEXT-103 DISPLAY LIKE C_E. EXIT.
-  ENDIF.
+      "BAR TITLE
+      GR_ZALV3->MO_HEADER1->SET_TITLE( ID = 1 TITLE = CONV #( |{ TEXT-303 } - { <FS_ALV1>-CLSDESC } [{ LINES( GT_ALV3 ) NUMBER = ENVIRONMENT }Í±¥]| ) ).
 
-  "check changed
-  PERFORM CHECK_CHANGED USING 3 CHANGING LV_CHANGED3.
+    WHEN GR_ZALV3->MO_GRID.
 
-  IF LV_CHANGED3 = C_X.
-    IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-804 } { TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
-      MESSAGE S000(0K) WITH TEXT-E03 DISPLAY LIKE C_E. EXIT.
-    ENDIF.
-  ENDIF.
+      ASSIGN GT_ALV3[ P_ROW-INDEX ] TO FIELD-SYMBOL(<FS_ALV3>).
+      CHECK SY-SUBRC = 0.
+      CHECK <FS_ALV3>-CLASS = 'Z03'.
 
-  GV_ZMODULE = <FS_ALV1>-ZMODULE.
-  GV_CLASS   = <FS_ALV1>-CLASS.
+      CASE <FS_ALV3>-FIELD01.
+        WHEN 'F'.
+	  CALL FUNCTION <FS_ALV3>-FIELD13.
+	WHEN 'P'.
+	  SUBMIT (<FS_ALV3>-FIELD13)
+	     VIA SELECTION-SCREEN
+	     AND RETURN.
+      ENDCASE.
 
-  "Popup 0110 screen, if no setting for fields.
-  "but show alv3 for data.
-  PERFORM CHECK_SETTING_FIELDS CHANGING LV_SET.
-
-  IF LV_SET = C_X.
-
-    "show alv3
-    GV_MODE3 = C_DISP.
-    
-    "≈ΩªˆµµøÚ∏ª « µÂ µÓ∑œ
-    DATA: LT_LVC_T_F4 TYPE LVC_T_F4.
-    IF GV_CLASS IN GR_COL_CLASS.
-    	GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( VALUE #( ( FIELDNAME = 'FIELD06' REGISTER = ABAP_TRUE ) ) ).
-    ELSE.
-    	CLEAR LT_LVC_T_F4.
-    	GR_ZALV3->MO_GRID->REGISTER_F4_FOR_FIELDS( LT_LVC_T_F4 ).
-    ENDIF.
-    
-    PERFORM SHOW_ALV USING 3.
-
-  ELSE.
-
-    MESSAGE I000(0K) WITH TEXT-704.
-
-    PERFORM GEN_ALV USING 2.
-
-    CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
-
-    PERFORM SHOW_ALV USING 3.
-
-  ENDIF.
-
-  "BAR TITLE
-  GR_ZALV3->MO_HEADER1->SET_TITLE( ID = 1 TITLE = CONV #( |{ TEXT-303 } - { <FS_ALV1>-CLSDESC } [{ LINES( GT_ALV3 ) NUMBER = ENVIRONMENT }∞«]| ) ).
+   ENDCASE.
 
 ENDFORM.                    " HANDLE_DOUBLE_CLICK
 *&---------------------------------------------------------------------*
@@ -780,7 +802,7 @@ FORM HANDLE_DATA_CHANGED  USING SENDER
       <FS_CHANGED> = ZCOC_X.
     ENDIF.
 
-    "ªˆªÛ « µÂ ªˆªÛ π›øµ
+    "ÏÉâÏÉÅ ÌïÑÎìú ÏÉâÏÉÅ Î∞òÏòÅ
     IF SENDER = GR_ZALV3->MO_GRID AND 
        LS_MOD_CELLS-FIELDNAME = 'FIELD06'.
        GT_ALV3[ LS_MOD_CELLS-ROW_ID ]-FIELD06 = LS_MOD_CELLS-VALUE.
@@ -789,6 +811,10 @@ FORM HANDLE_DATA_CHANGED  USING SENDER
 
   ENDLOOP.
 
+  LOOP AT P_DATA_CHANGED->MT_PROTOCOL INTO DATA(LS_MSG_CELL) WHERE MSGTY <> 'S'.
+    CALL METHOD P_DATA_CHANGED->DISPLAY_PROTOCOL( ).
+    EXIT.
+  ENDLOOP.
 ENDFORM.                    " HANDLE_DATA_CHANGED
 *&---------------------------------------------------------------------*
 *&      Form  CHECK_CHANGED
@@ -933,11 +959,11 @@ FORM UCOMM_BACK_0110 .
     ENDIF.
   ENDIF.
 
-  GR_ZAVL2->MO_GRID->FREE( ).
-  GR_ZAVL2->MO_DOCKING->FREE( ).
-
-  CLEAR: GR_ZAVL2->MO_GRID,
-         GR_ZAVL2->MO_DOCKING.
+*  GR_ZAVL2->MO_GRID->FREE( ).
+*  GR_ZAVL2->MO_DOCKING->FREE( ).
+*
+*  CLEAR: GR_ZAVL2->MO_GRID,
+*         GR_ZAVL2->MO_DOCKING.
 
   GV_MODE2 = C_DISP.
 
@@ -952,9 +978,9 @@ FORM SET_CLASS_FIELDS .
   GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
 
   IF LINES( LT_ROW ) = 0.
-    MESSAGE I000 WITH '¿€æ˜¿ª ºˆ«‡«“ «‡¿ª ∏’¿˙ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE C_E. EXIT.
+    MESSAGE I000 WITH 'ÏûëÏóÖÏùÑ ÏàòÌñâÌï† ÌñâÏùÑ Î®ºÏ†Ä ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE C_E. EXIT.
   ELSEIF LINES( LT_ROW ) > 1.
-    MESSAGE I000 WITH '«œ≥™¿« «‡∏∏ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE C_E. EXIT.
+    MESSAGE I000 WITH 'ÌïòÎÇòÏùò ÌñâÎßå ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE C_E. EXIT.
   ELSE.
 
     IF LINE_EXISTS( LT_ROW[ 1 ] ).
@@ -979,7 +1005,8 @@ FORM SET_CLASS_FIELDS .
 
         PERFORM GEN_ALV USING 2.
 
-        CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+*        CALL SCREEN 0110 STARTING AT 10 2 ENDING AT 170 25.
+	PERFORM CALL_FIELD_SELECTION_POPUP.
 
         PERFORM SHOW_ALV USING 3.
 
@@ -998,9 +1025,9 @@ FORM SET_CLASS_FIELDS2 .
   GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
 
   IF LINES( LT_ROW ) = 0.
-    MESSAGE I000 WITH '¿€æ˜¿ª ºˆ«‡«“ «‡¿ª ∏’¿˙ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE C_E. EXIT.
+    MESSAGE I000 WITH 'ÏûëÏóÖÏùÑ ÏàòÌñâÌï† ÌñâÏùÑ Î®ºÏ†Ä ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE C_E. EXIT.
   ELSEIF LINES( LT_ROW ) > 1.
-    MESSAGE I000 WITH '«œ≥™¿« «‡∏∏ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE C_E. EXIT.
+    MESSAGE I000 WITH 'ÌïòÎÇòÏùò ÌñâÎßå ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE C_E. EXIT.
   ELSE.
 
     IF LINE_EXISTS( LT_ROW[ 1 ] ).
@@ -1044,44 +1071,13 @@ FORM F4_ZMODULE  USING    P_FIELD.
   SELECT DISTINCT ZMODULE
     FROM ZTCO2000
    ORDER BY ZMODULE
-    INTO TABLE @DATA(LT_MODULE).
+    INTO TABLE @DATA(LT_DATA).
 
-  PERFORM CALL_F4 TABLES LT_MODULE
-                  USING  'ZMODULE'.
+  ZCL_COC_ONF4=>CALL_F4( I_RETFIELD = 'ZMODULE'
+                         I_DYNFIELD = P_FIELD
+			 IT_DATA    = LT_DATA ).
 
 ENDFORM.                    " F4_ZMODULE
-*&---------------------------------------------------------------------*
-*&      Form  CALL_F4
-*&---------------------------------------------------------------------*
-*       text
-*----------------------------------------------------------------------*
-FORM CALL_F4  TABLES   P_VAL
-             USING     P_FIELD.
-
-  DATA : LT_RETURN_TAB TYPE TABLE OF DDSHRETVAL.
-
-  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
-    EXPORTING
-      RETFIELD        = P_FIELD
-      DYNPPROG        = SY-REPID
-      DYNPNR          = SY-DYNNR
-      DYNPROFIELD     = P_FIELD
-      VALUE_ORG       = 'S'
-    TABLES
-      VALUE_TAB       = P_VAL
-      RETURN_TAB      = LT_RETURN_TAB
-    EXCEPTIONS
-      PARAMETER_ERROR = 1
-      NO_VALUES_FOUND = 2
-      OTHERS          = 3.
-
-  IF SY-SUBRC <> 0.
-    MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
-            WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
-
-  ENDIF.
-
-ENDFORM.                                                    " CALL_F4
 *&---------------------------------------------------------------------*
 *&      Form  F4_CLASS
 *&---------------------------------------------------------------------*
@@ -1094,10 +1090,11 @@ FORM F4_CLASS  USING    P_FIELD.
     FROM ZTCO2000
    WHERE ZMODULE IN @S_ZMODU
    ORDER BY ZMODULE, CLASS
-    INTO TABLE @DATA(LT_CLASS).
+    INTO TABLE @DATA(LT_DATA).
 
-  PERFORM CALL_F4 TABLES LT_CLASS
-                  USING  'CLASS'.
+  ZCL_COC_ONF4=>CALL_F4( I_RETFIELD = 'CLASS'
+                         I_DYNFIELD = P_FIELD
+			 IT_DATA    = LT_DATA ).
 
 ENDFORM.                    " F4_CLASS
 *&---------------------------------------------------------------------*
@@ -1122,7 +1119,7 @@ FORM CHECK_DUPLICATED  CHANGING PV_DUP.
     ENDLOOP.
 
     IF LV_CNT > 1.
-      MESSAGE I000 WITH '∏µ‚, ƒ⁄µÂ ≈¨∑°Ω∫∞° ¡ﬂ∫πµ«æ˙Ω¿¥œ¥Ÿ.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
+      MESSAGE I000 WITH 'Î™®Îìà, ÏΩîÎìú ÌÅ¥ÎûòÏä§Í∞Ä Ï§ëÎ≥µÎêòÏóàÏäµÎãàÎã§.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
       PV_DUP = C_X.
       EXIT.
     ENDIF.
@@ -1148,7 +1145,7 @@ FORM CHECK_EXISTENCE  CHANGING PV_EXIST.
       INTO @DATA(LV_LINES).
 
     IF LV_LINES <> 0.
-      MESSAGE I000 WITH '∏µ‚, ƒ⁄µÂ≈¨∑°Ω∫∞° ¿ÃπÃ ¡∏¿Á«’¥œ¥Ÿ.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
+      MESSAGE I000 WITH 'Î™®Îìà, ÏΩîÎìúÌÅ¥ÎûòÏä§Í∞Ä Ïù¥ÎØ∏ Ï°¥Ïû¨Ìï©ÎãàÎã§.' <FS_ALV1>-ZMODULE '/' <FS_ALV1>-CLASS DISPLAY LIKE C_E.
       PV_EXIST = C_X.
       EXIT.
     ENDIF.
@@ -1164,7 +1161,7 @@ FORM TRUNCATE_ROW .
   GR_ZALV1->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = DATA(LT_ROW) ).
 
   IF LT_ROW IS INITIAL.
-    MESSAGE I000 WITH 'ªË¡¶«“ «‡¿ª ∏’¿˙ º±≈√«ÿ ¡÷ººø‰.' DISPLAY LIKE C_E. EXIT.
+    MESSAGE I000 WITH 'ÏÇ≠Ï†úÌï† ÌñâÏùÑ Î®ºÏ†Ä ÏÑ†ÌÉùÌï¥ Ï£ºÏÑ∏Ïöî.' DISPLAY LIKE C_E. EXIT.
   ELSE.
 
     IF ZCL_COC_COMM=>POPUP_TO_CONFIRM( IV_QUESTION = CONV #( |{ TEXT-805 } {TEXT-802 }| ) IV_WINDOW_TYPE = 'B' ) NE '1'.
@@ -1193,7 +1190,7 @@ FORM TRUNCATE_ROW .
 
   PERFORM REFRESH_ALV USING: 1, 3.
 
-  MESSAGE S000 WITH 'Ω««‡¿Ã º∫∞¯¿˚¿∏∑Œ øœ∑·µ∆Ω¿¥œ¥Ÿ.'.
+  MESSAGE S000 WITH 'Ïã§ÌñâÏù¥ ÏÑ±Í≥µÏ†ÅÏúºÎ°ú ÏôÑÎ£åÎêêÏäµÎãàÎã§.'.
 
 ENDFORM.                    " TRUNCATE_ROW
 *&---------------------------------------------------------------------*
@@ -1219,22 +1216,22 @@ ENDFORM.                    " CHECK_SETTING_FIELDS
 *&---------------------------------------------------------------------*
 FORM HANDLE_ONF4 USING SENDER 
                        PV_FIELDNAME  TYPE LVC_FNAME
-	                     PV_FIELDVALUE TYPE LVC_VALUE
-	                     PS_ROW_NO     TYPE LVC_S_ROID
-	                     PR_EVENT_DATA TYPE REF TO CL_ALV_EVENT_DATA
-	                     PT_BAD_CELLS  TYPE LVC_T_MODI
-	                     PV_DISPLAY.
+	               PV_FIELDVALUE TYPE LVC_VALUE
+	               PS_ROW_NO     TYPE LVC_S_ROID
+	               PR_EVENT_DATA TYPE REF TO CL_ALV_EVENT_DATA
+	               PT_BAD_CELLS  TYPE LVC_T_MODI
+	               PV_DISPLAY.
 
   PR_EVENT_DATA->M_EVENT_HANDLED = 'X'.
   
-  "∑ª≈ª º’¿Õ ¡∂∞ﬂ«• æÁΩƒ ªˆªÛ µµøÚ∏ª
+  "Î†åÌÉà ÏÜêÏùµ Ï°∞Í≤¨Ìëú ÏñëÏãù ÏÉâÏÉÅ ÎèÑÏõÄÎßê
   IF GV_CLASS IN GR_COL_CLASS.
   	 
-  	 CASE PV_FIELDNAME.
-  	   WHEN 'FIELD06'.
-  	     DATA(LV_VALUE) = CONV LVC_EMPHSZ( PV_FIELDVALUE ).
-  	     ZCL_COC_ONF4=>F4_COLOR( CHANGING CV_EMPHASIZE = LV_VALUE ).
-  	 ENDCASE.
+    CASE PV_FIELDNAME.
+      WHEN 'FIELD06'.
+        DATA(LV_VALUE) = CONV LVC_EMPHSZ( PV_FIELDVALUE ).
+        ZCL_COC_ONF4=>F4_COLOR( CHANGING CV_EMPHASIZE = LV_VALUE ).
+    ENDCASE.
   	 
   ENDIF.
   
@@ -1252,7 +1249,7 @@ ENDFORM.                    " HANDLE_ONF4
 *&---------------------------------------------------------------------*
 FORM AT_SELECTION_SCREEN_OUTPUT .
 
-  "»≠∏È « µÂ º”º∫ ¡¶æÓ
+  "ÌôîÎ©¥ ÌïÑÎìú ÏÜçÏÑ± Ï†úÏñ¥
   PERFORM MODIFY_SCREEN_0100.
 
 ENDFORM.                    " AT_SELECTION_SCREEN_OUTPUT
@@ -1262,18 +1259,18 @@ ENDFORM.                    " AT_SELECTION_SCREEN_OUTPUT
 FORM MODIFY_SCREEN_0100 .
 
   "Screen control
-	LOOP AT SCREEN.
-		
-		CASE SCREEN-GROUP1.
-		
-		 WHEN 'RFC'.
-		   IF P_RFC NE ABAP_ON.
-		     SCREEN-ACTIVE = 0.
-		   ENDIF.
-		 
-	  ENDCASE.
-	
-	  MODIFY SCREEN.
+   LOOP AT SCREEN.
+   	
+     CASE SCREEN-GROUP1.
+     	
+       WHEN 'RFC'.
+         IF P_RFC NE ABAP_ON.
+           SCREEN-ACTIVE = 0.
+         ENDIF.
+     	 
+     ENDCASE.
+   
+   MODIFY SCREEN.
 	
   ENDLOOP.
 
@@ -1287,10 +1284,10 @@ FORM GET_SAVE_DATA_FROM_RFC_DEST .
 
   FIELD-SYMBOLS: <LT_ITAB> TYPE TABLE.
   	    
-  "RFC ∏Ò¿˚¡ˆ ¡§∫∏ »Æ¿Œ
+  "RFC Î™©Ï†ÅÏßÄ Ï†ïÎ≥¥ ÌôïÏù∏
   SELECT SINGLE *
-  	FROM RFCDES
-  	INTO @DATA(LS_RFCDES)
+    FROM RFCDES
+    INTO @DATA(LS_RFCDES)
    WHERE RFCDEST = @P_RFCDES.
    
   IF SY-SUBRC <> 0.
@@ -1303,7 +1300,7 @@ FORM GET_SAVE_DATA_FROM_RFC_DEST .
     LEAVE LIST-PROCESSING.
   ENDIF.
   
-  "RFC ∏Ò¿˚¡ˆ ¡¢º” »Æ¿Œ
+  "RFC Î™©Ï†ÅÏßÄ Ï†ëÏÜç ÌôïÏù∏
   CALL FUNCTION 'RFC_CHECK_DESTINATION'
     EXPORTING
       MYDEST            = LS_RFCDES-RFCDEST
@@ -1335,10 +1332,10 @@ FORM GET_SAVE_DATA_FROM_RFC_DEST .
     LEAVE LIST-PROCESSING.
   ENDIF.
 
-  "¡∂∞«ø° «ÿ¥Á«œ¥¬ µ•¿Ã≈Õ ªË¡¶ »ƒ ¿˙¿Â
+  "Ï°∞Í±¥Ïóê Ìï¥ÎãπÌïòÎäî Îç∞Ïù¥ÌÑ∞ ÏÇ≠Ï†ú ÌõÑ Ï†ÄÏû•
   LOOP AT LT_TABNM ASSIGNING FIELD-SYMBOL(<FS_TABNM>).
 
-    "µ•¿Ã≈Õ ∞°¡Æø¿±‚
+    "Îç∞Ïù¥ÌÑ∞ Í∞ÄÏ†∏Ïò§Í∏∞
     CREATE DATA LO_DATA TYPE TABLE OF (<FS_TABNM>-TABNAME).
     ASSING LO_DTA->* TO <LT_ITAB>.
 
@@ -1349,7 +1346,7 @@ FORM GET_SAVE_DATA_FROM_RFC_DEST .
       IMPORTING
         ET_DATA   = <LT_ITAB>.
 
-    "µ•¿Ã≈Õ ªË¡¶ »ƒ ¿˙¿Â
+    "Îç∞Ïù¥ÌÑ∞ ÏÇ≠Ï†ú ÌõÑ Ï†ÄÏû•
     DATA(LV_WHERE) = |ZMODULE NOT IN S_ZMODU OR CLASS NOT IN S_CLASS|.
     DELETE <LT_ITAB> WHERE (LV_WHERE).
 
@@ -1360,7 +1357,7 @@ FORM GET_SAVE_DATA_FROM_RFC_DEST .
   
   COMMIT WORK.
   
-  MESSAGE S007. "¿€æ˜¿Ã ¡§ªÛ √≥∏Æ µ«æ˙Ω¿¥œ¥Ÿ."
+  MESSAGE S007. "ÏûëÏóÖÏù¥ Ï†ïÏÉÅ Ï≤òÎ¶¨ ÎêòÏóàÏäµÎãàÎã§."
 
 ENDFORM.                    " GET_SAVE_DATA_FROM_RFC_DEST
 *&---------------------------------------------------------------------*
@@ -1372,7 +1369,10 @@ FORM CHECK_CHANGED_DATA USING PV_TAR.
 
   CHECK <FS_ALV> IS BOUND.
 
-  <FS_ALV>->MO_GRID->CHECK_CHANGED_DATA( ).
+*  <FS_ALV>->MO_GRID->CHECK_CHANGED_DATA( ).
+  <FS_ALV>->MO_GRID->CHECK_CHANGED_DATA( IMPORTING E_VALID = DATA(L_VALID) ).
+  IF L_VALID IS INITIAL. LEAVE SCREEN. ENDIF.
+
 
 ENDFORM.                    " CHECK_CHANGED_DATA
 *&---------------------------------------------------------------------*
@@ -1414,10 +1414,11 @@ FORM CREATE_OBJ_ALV USING PV_TAR.
     ELSE.
 
       "1. MAIN DIALOGBOX CONTAINER / SPLITTER
-      IF GR_ZALV1->MO_DIALOGBOX IS NOT BOUND.
-        GR_ZALV1->MO_DIALOGBOX = NEW #( STYLE = CL_GUI_CONTROL=>WS_CHILD ).
+*      IF GR_ZALV1->MO_DIALOGBOX IS NOT BOUND.
+*        GR_ZALV1->MO_DIALOGBOX = NEW #( STYLE = CL_GUI_CONTROL=>WS_CHILD ).
+      IF GR_ZALV1->MO_SPLIT IS NOT BOUND.
 
-        GR_ZALV1->MO_SPLIT = NEW #( PARENT  = GR_ZALV1->MO_DIALOGBOX
+        GR_ZALV1->MO_SPLIT = NEW #( PARENT  = CL_GUI_CONTAINER=>SCREEN0 "GR_ZALV1->MO_DIALOGBOX
                                     ROWS    = 1
                                     COLUMNS = 2 ).
 
@@ -1469,6 +1470,7 @@ FORM SET_EVENT USING PV_TAR.
 
     WHEN 3.
       SET HANDLER GR_EVENT_HANDLER->HANDLE_ONF4
+                  GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK
                   FOR <FS_ALV>->MO_GRID.
   ENDCASE.
 
@@ -1495,20 +1497,20 @@ FORM SET_FDCAT USING PV_TAR.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '∏µ‚' ).
+                                                  COLTEXT   = 'Î™®Îìà' ).
           WHEN 'CLASS'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '≈¨∑°Ω∫' ).
+                                                  COLTEXT   = 'ÌÅ¥ÎûòÏä§' ).
           WHEN 'CLSDESC'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 30
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '≈¨∑°Ω∫ ≥ªø™' ).
+                                                  COLTEXT   = 'ÌÅ¥ÎûòÏä§ ÎÇ¥Ïó≠' ).
           WHEN 'CLSLONGDESC'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 40
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '≈¨∑°Ω∫ ≥ªø™(Long)' ).
+                                                  COLTEXT   = 'ÌÅ¥ÎûòÏä§ ÎÇ¥Ïó≠(Long)' ).
           WHEN OTHERS.
             <FS_FDCAT>-NO_OUT = ZCOC_X.
         ENDCASE.
@@ -1523,55 +1525,55 @@ FORM SET_FDCAT USING PV_TAR.
           WHEN 'ZMODULE'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
-                                                  COLTEXT   = '∏µ‚' ).
+                                                  COLTEXT   = 'Î™®Îìà' ).
           WHEN 'CLASS'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
-                                                  COLTEXT   = '≈¨∑°Ω∫' ).
+                                                  COLTEXT   = 'ÌÅ¥ÎûòÏä§' ).
           WHEN 'FIELDS'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
-                                                  COLTEXT   = '« µÂ' ).
+                                                  COLTEXT   = 'ÌïÑÎìú' ).
           WHEN 'DATATYPE' OR 'LENG' OR 'DECIMALS'.
             <FS_FDCAT>-COL_POS = 3.
           WHEN 'ZUSAGE'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                                   CHECKBOX  = ZCOC_X
-                                                  COLTEXT   = 'ªÁøÎø©∫Œ'
+                                                  COLTEXT   = 'ÏÇ¨Ïö©Ïó¨Î∂Ä'
                                                   EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
           WHEN 'ZKEY'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                                   CHECKBOX  = ZCOC_X
-                                                  COLTEXT   = '≈∞« µÂ ø©∫Œ'
+                                                  COLTEXT   = 'ÌÇ§ÌïÑÎìú Ïó¨Î∂Ä'
                                                   EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
           WHEN 'ZCHKBOX'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                                   CHECKBOX  = ZCOC_X
-                                                  COLTEXT   = '√º≈©π⁄Ω∫ ø©∫Œ'
+                                                  COLTEXT   = 'Ï≤¥ÌÅ¨Î∞ïÏä§ Ïó¨Î∂Ä'
                                                   EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
           WHEN 'ZSORT'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                                   " CHECKBOX  = ZCOC_X
-                                                  COLTEXT   = '¡§∑ƒ« µÂ º¯º≠'
+                                                  COLTEXT   = 'Ï†ïÎ†¨ÌïÑÎìú ÏàúÏÑú'
                                                   EDIT      = SWITCH #( GV_MODE2 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
           WHEN 'FLDDESC'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ZCOC_X
-                                                  COLTEXT   = '« µÂ ≥ªø™' ).
+                                                  COLTEXT   = 'ÌïÑÎìú ÎÇ¥Ïó≠' ).
           WHEN 'COL_POS'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ZCOC_X
-                                                  COLTEXT   = '« µÂ √‚∑¬ ¿ßƒ°' ).
+                                                  COLTEXT   = 'ÌïÑÎìú Ï∂úÎ†• ÏúÑÏπò' ).
           WHEN 'REF_TABLE'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '¬¸¡∂≈◊¿Ã∫Ì' ).
+                                                  COLTEXT   = 'Ï∞∏Ï°∞ÌÖåÏù¥Î∏î' ).
           WHEN 'REF_FIELD'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   EDIT      = ZCOC_X
-                                                  COLTEXT   = '¬¸¡∂« µÂ' ).
+                                                  COLTEXT   = 'Ï∞∏Ï°∞ÌïÑÎìú' ).
           WHEN 'SHLPNAME'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   EDIT      = ZCOC_X
                                                   NO_OUT    = ZCOC_X
-                                                  COLTEXT   = '≈ΩªˆµµøÚ∏ª' ).
+                                                  COLTEXT   = 'ÌÉêÏÉâÎèÑÏõÄÎßê' ).
         WHEN OTHERS.
             <FS_FDCAT>-NO_OUT = ZCOC_X.
         ENDCASE.
@@ -1587,25 +1589,25 @@ FORM SET_FDCAT USING PV_TAR.
           WHEN 'ZMODULE'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
-                                                  COLTEXT   = '∏µ‚' ).
+                                                  COLTEXT   = 'Î™®Îìà' ).
           WHEN 'CLASS'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   KEY       = ZCOC_X
-                                                  COLTEXT   = '≈¨∑°Ω∫' ).
+                                                  COLTEXT   = 'ÌÅ¥ÎûòÏä§' ).
           WHEN 'SEQNO'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> TECH      = ZCOC_X
-                                                  COLTEXT   = 'º¯π¯' ).
+                                                  COLTEXT   = 'ÏàúÎ≤à' ).
           WHEN 'DELFLAG'.
             <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                                   CHECKBOX  = ZCOC_X
                                                   COL_POS   = 99
                                                   EDIT      = SWITCH #( GV_MODE3 WHEN C_CHNG THEN ABAP_ON ELSE ABAP_OFF ) ).
 
-            IF ( GV_ZMODULE = 'CO' AND GV_CLASS = 'A04' ) OR "∫ÒøÎ∞Ë»π πˆ¿¸
-               ( GV_ZMODULE = 'CO' AND GV_CLASS = 'B04' ).   "≈ı¿⁄∞Ë»π πˆ¿¸
-              <FS_FDCAT>-COLTEXT = '»∞º∫ø©∫Œ'.
+            IF ( GV_ZMODULE = 'CO' AND GV_CLASS = 'A04' ) OR "ÎπÑÏö©Í≥ÑÌöç Î≤ÑÏ†Ñ
+               ( GV_ZMODULE = 'CO' AND GV_CLASS = 'B04' ).   "Ìà¨ÏûêÍ≥ÑÌöç Î≤ÑÏ†Ñ
+              <FS_FDCAT>-COLTEXT = 'ÌôúÏÑ±Ïó¨Î∂Ä'.
             ELSE.                     
-              <FS_FDCAT>-COLTEXT = 'ªË¡¶ø©∫Œ'.    
+              <FS_FDCAT>-COLTEXT = 'ÏÇ≠Ï†úÏó¨Î∂Ä'.    
             ENDIF.
           WHEN OTHERS.
             
@@ -1640,7 +1642,7 @@ FORM SET_FDCAT USING PV_TAR.
 
               ENDIF.
 
-              "º’¿Õ ¡∂∞ﬂ«•(∑ª≈ª/¿œΩ√∫“) æÁΩƒ - ∂Û¿Œ ªˆªÛ « µÂ
+              "ÏÜêÏùµ Ï°∞Í≤¨Ìëú(Î†åÌÉà/ÏùºÏãúÎ∂à) ÏñëÏãù - ÎùºÏù∏ ÏÉâÏÉÅ ÌïÑÎìú
               IF <FS_FDCAT>-FIELDNAME = 'FIELD06' AND 
                  GV_CLASS IN GR_COL_CLASS.
                 <FS_FDCAT>-F4AVAILABL = ZCOC_X.
@@ -1688,8 +1690,8 @@ FORM SET_LAYOUT USING PV_TAR.
                                  SEL_MODE   = 'D'
                                  STYLEFNAME = 'CELLTAB'
                                  CTAB_FNAME = 'COLINFO'
-                                 NO_ROWINS  = SWITCH #( PV_TAR WHEN 2 THEN 'X' ELSE ' ' )
-                                 GRID_TITLE = SWITCH #( PV_TAR WHEN 1 THEN TEXT-301 WHEN 3 THEN TEXT-303 ) ).
+                                 NO_ROWINS  = SWITCH #( PV_TAR WHEN 2 THEN 'X' ELSE ' ' ) ).
+*                                 GRID_TITLE = SWITCH #( PV_TAR WHEN 1 THEN TEXT-301 WHEN 3 THEN TEXT-303 ) ).
 
   <FS_ALV>->MS_VARIANT = VALUE #( REPORT = SY-REPID         
                                   HANDLE = SWITCH #( PV_TAR WHEN 1 THEN 'A' WHEN 2 THEN 'B' WHEN 3 WHEN 'C' ) ).
@@ -1772,16 +1774,16 @@ FORM CALL_FIELD_SELECTION_POPUP.
         LT_DATA_RIGHT  TYPE TABLE OF TY_ALV2,
         LV_OK          TYPE C.
 
-  "ALV µ•¿Ã≈Õ √ﬂ√‚
+  "ALV Îç∞Ïù¥ÌÑ∞ Ï∂îÏ∂ú
   PERFORM GET_ALV2 TABLES LT_DATA_LEFT LT_DATA_RIGHT.
 
-  "FIELD CATALOG √ﬂ√‚
+  "FIELD CATALOG Ï∂îÏ∂ú
   PERFORM SET_FDCAT2 TABLES LT_FCAT_LEFT LT_FCAT_RIGHT.
 
   CALL FUNCTION 'ZCOCCM_FIELD_SELECTION_POPUP'
     EXPORTING
       I_MIN_COLUMNS = 1
-      I_TITLE_POPUP = '« µÂ ¡§¿«'
+      I_TITLE_POPUP = 'ÌïÑÎìú Ï†ïÏùò'
       IS_COORD      = VALUE FGL_S_POPUP_COORD( START_COL = 20 START_ROW = 3 END_COL = 100 END_ROW = 25 )
     IMPORTING
       E_FS_OK       = LV_OK
@@ -1813,61 +1815,61 @@ FORM SET_FDCAT2 USING PT_FCAT_LEFT  TYPE LVC_T_FCAT
                                               OUTPUTLEN = 10
                                               KEY       = ABAP_ON
                                               NO_OUT    = ABAP_ON
-                                              COLTEXT   = '∏µ‚' ).
+                                              COLTEXT   = 'Î™®Îìà' ).
       WHEN 'CLASS'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> COL_POS   = 1
                                               OUTPUTLEN = 10
                                               KEY       = ABAP_ON
                                               NO_OUT    = ABAP_ON
-                                              COLTEXT   = '≈¨∑°Ω∫' ).
+                                              COLTEXT   = 'ÌÅ¥ÎûòÏä§' ).
       WHEN 'FIELDS'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> COL_POS   = 2
                                               OUTPUTLEN = 10
-                                              COLTEXT   = '« µÂ' ).
+                                              COLTEXT   = 'ÌïÑÎìú' ).
       WHEN 'DATATYPE' OR 'LENG' OR 'DECIMALS'.
         <FS_FDCAT>-COL_POS = 3.
       WHEN 'ZUSAGE'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               CHECKBOX  = ABAP_ON
                                               NO_OUT    = ABAP_ON
-                                              COLTEXT   = 'ªÁøÎø©∫Œ'
+                                              COLTEXT   = 'ÏÇ¨Ïö©Ïó¨Î∂Ä'
                                               EDIT      = ABAP_ON ).
       WHEN 'ZKEY'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               CHECKBOX  = ABAP_ON
-                                              COLTEXT   = '≈∞« µÂ ø©∫Œ'
+                                              COLTEXT   = 'ÌÇ§ÌïÑÎìú Ïó¨Î∂Ä'
                                               EDIT      = ABAP_ON ).
       WHEN 'ZCHKBOX'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               CHECKBOX  = ABAP_ON
-                                              COLTEXT   = '√º≈©π⁄Ω∫ ø©∫Œ'
+                                              COLTEXT   = 'Ï≤¥ÌÅ¨Î∞ïÏä§ Ïó¨Î∂Ä'
                                               EDIT      = ABAP_ON ).
       WHEN 'ZSORT'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               " CHECKBOX  = ABAP_ON
-                                              COLTEXT   = '¡§∑ƒ« µÂ º¯º≠'
+                                              COLTEXT   = 'Ï†ïÎ†¨ÌïÑÎìú ÏàúÏÑú'
                                               EDIT      = ABAP_ON ).
       WHEN 'FLDDESC'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 20
                                               EDIT      = ABAP_ON
-                                              COLTEXT   = '« µÂ ≥ªø™' ).
+                                              COLTEXT   = 'ÌïÑÎìú ÎÇ¥Ïó≠' ).
       WHEN 'COL_POS'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> EDIT      = ABAP_ON
                                               NO_OUT    = ABAP_ON
-                                              COLTEXT   = '« µÂ √‚∑¬ ¿ßƒ°' ).
+                                              COLTEXT   = 'ÌïÑÎìú Ï∂úÎ†• ÏúÑÏπò' ).
       WHEN 'REF_TABLE'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               EDIT      = ABAP_ON
-                                              COLTEXT   = '¬¸¡∂≈◊¿Ã∫Ì' ).
+                                              COLTEXT   = 'Ï∞∏Ï°∞ÌÖåÏù¥Î∏î' ).
       WHEN 'REF_FIELD'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 8
                                               EDIT      = ABAP_ON
-                                              COLTEXT   = '¬¸¡∂« µÂ' ).
+                                              COLTEXT   = 'Ï∞∏Ï°∞ÌïÑÎìú' ).
       WHEN 'SHLPNAME'.
         <FS_FDCAT> = VALUE #( BASE <FS_FDCAT> OUTPUTLEN = 10
                                               EDIT      = ABAP_ON
                                               NO_OUT    = ABAP_ON
-                                              COLTEXT   = '≈ΩªˆµµøÚ∏ª' ).
+                                              COLTEXT   = 'ÌÉêÏÉâÎèÑÏõÄÎßê' ).
     WHEN OTHERS.
         <FS_FDCAT>-NO_OUT = ABAP_ON.
     ENDCASE.
@@ -1889,10 +1891,10 @@ FORM SET_FDCAT2 USING PT_FCAT_LEFT  TYPE LVC_T_FCAT
         <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
       WHEN 'CLASS'.
         <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
-      WHEN 'SEQNO'.
+      WHEN 'FIELDS'.
         <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
         <FS_FCAT_LEFT>-KEY    = ABAP_ON.
-      WHEN 'DELFLAG'.
+      WHEN 'DATATYPE' OR 'LENG' OR 'DECIMALS'.
         <FS_FCAT_LEFT>-NO_OUT = ABAP_OFF.
     ENDCASE.
 
@@ -1975,7 +1977,7 @@ FORM SAVE_FIELDS_ATTR USING PT_LEFT  LIKE GT_ALV2
 
   GV_MODE3 = C_DISP.
 
-  MESSAGE S000 WITH 'Ω««‡¿Ã º∫∞¯¿˚¿∏∑Œ øœ∑·µ∆Ω¿¥œ¥Ÿ.'.
+  MESSAGE S000 WITH 'Ïã§ÌñâÏù¥ ÏÑ±Í≥µÏ†ÅÏúºÎ°ú ÏôÑÎ£åÎêêÏäµÎãàÎã§.'.
 
 ENDFORM.                    " SAVE_FIELDS_ATTR
 *&---------------------------------------------------------------------*
