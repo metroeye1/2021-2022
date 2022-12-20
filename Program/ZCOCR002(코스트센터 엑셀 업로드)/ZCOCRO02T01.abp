@@ -1,0 +1,89 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCRO02T01
+*&---------------------------------------------------------------------*
+*-----------------------------------------------------------------------
+* TABLES
+*-----------------------------------------------------------------------
+TABLES: SSCRFIELDS, CSKS, T001.
+
+*-----------------------------------------------------------------------
+* TYPE-POOLS
+*-----------------------------------------------------------------------
+TYPE-POOLS: SSCR.
+
+*-----------------------------------------------------------------------
+* DATA: FIELD
+*-----------------------------------------------------------------------
+
+*-----------------------------------------------------------------------
+* DATA: INTERNAL TABLE / STRUCTURE
+*-----------------------------------------------------------------------
+DATA GR_ZALV TYPE REF TO ZCL_CO_ALV.
+DATA GR_EVENT_HANDLER TYPE REF TO ZCL_CO_EVENT_HANDLER.
+
+DATA: GV_BTN   TYPE GUI_DYNTXT,
+      GV_TITLE TYPE STRING.
+
+* Excel structure
+DATA: BEGIN OF GS_EXCEL,
+        KOSTL(10)     TYPE C,
+        KTEXT(20)     TYPE C,
+        LTEXT(40)     TYPE C,
+        DATAB(10)     TYPE C,
+        DATBI(10)     TYPE C,
+        VERAK(20)     TYPE C,
+        KOSAR(1)      TYPE C,
+        KHINR(12)     TYPE C,
+        GSBER(4)      TYPE C,
+        FUNC_AREA(16) TYPE C,
+        WAERS(3)      TYPE C,
+        PRCTR(10)     TYPE C,
+        BKZKP         TYPE C,
+        PKZKP         TYPE C,
+      END OF GS_EXCEL.
+
+DATA: GT_EXCEL LIKE TABLE OF GS_EXCEL.
+
+*Alv structure
+DATA: BEGIN OF GT_ALV1 OCCURS 0.
+        INCLUDE STRUCTURE CSKS_EX.
+DATA: STAT_DATA LIKE ICON-ID,
+      STAT_EXEC LIKE ICON-ID,
+      BKZKPT    TYPE CHAR10,
+      PKZKPT    TYPE CHAR10,
+      MSG_DATA  LIKE BAPIRETURN-MESSAGE,
+      MSG_EXEC  LIKE BAPIRETURN-MESSAGE,
+      CELLTAB   TYPE LVC_T_STYL,
+      COLINFO   TYPE LVC_T_SCOL,
+      END OF GT_ALV1.
+
+* Cost center(BAPI)
+DATA: GT_CCENTERS LIKE TABLE OF BAPI0012_CCINPUTLIST WITH HEADER LINE,
+      GT_RETURN   LIKE TABLE OF BAPIRET2 WITH HEADER LINE.
+
+***********************************************************************
+* SELECTION-SCREEN
+***********************************************************************
+SELECTION-SCREEN BEGIN OF BLOCK BLK01 WITH FRAME TITLE TEXT-001.
+"Controlling Area
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT (31) TEXT-101 FOR FIELD P_KOKRS.
+PARAMETERS P_KOKRS LIKE TKA01-KOKRS OBLIGATORY MEMORY ID CAC.
+SELECTION-SCREEN COMMENT 45(20) P_KOKRST MODIF ID INT.
+SELECTION-SCREEN END OF LINE.
+"File
+PARAMETERS P_IFILE LIKE RLGRAP-FILENAME MODIF ID XLS MEMORY ID ZCOCR002_FN.
+"Action
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT (31) TEXT-102.
+PARAMETERS P_CRTE RADIOBUTTON GROUP RB1 DEFAULT 'X' USER-COMMAND CMD.
+SELECTION-SCREEN COMMENT (16) TEXT-105 FOR FIELD P_CRTE.
+PARAMETERS P_CHNG RADIOBUTTON GROUP RB1.
+SELECTION-SCREEN COMMENT (16) TEXT-104 FOR FIELD P_CHNG.
+PARAMETERS P_CLOS RADIOBUTTON GROUP RB1.
+SELECTION-SCREEN COMMENT (16) TEXT-106 FOR FIELD P_CLOS.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK BLK01.
+SELECTION-SCREEN FUNCTION KEY 1.
+
+----------------------------------------------------------------------

@@ -1,0 +1,1337 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCRO02F01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  INITIALIZATION
+*&---------------------------------------------------------------------*
+FORM INITIALIZATION .
+
+  "ALV Class
+  GR_ZALV = NEW #( ).
+
+  "Controlling Area
+  P_KOKRS = ZCL_CO_COMM=>K_KOKRS_SET( I_KOKRS = P_KOKRS ).
+
+  "Download Form
+  PERFORM SET_DYNTXT.
+
+  "SET TITLE
+  GV_TITLE = ZCL_CO_UTIL=>GET_TITLE( SY-CPROG ).
+
+ENDFORM .
+*&---------------------------------------------------------------------*
+*&      Form  SET_DYNTXT
+*&---------------------------------------------------------------------*
+FORM SET_DYNTXT.
+
+  SSCRFIELDS-FUNCTXT_01 = VALUE SMP_DYNTXT( ICON_ID   = ICON_XLS
+                                            QUICKINFO = TEXT-D01
+                                            ICON_TEXT = TEXT-D01 ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  AT_SELECTION_SCREEN
+*&---------------------------------------------------------------------*
+FORM AT_SELECTION_SCREEN.
+
+  CASE SSCRFIELDS-UCOMM.
+    WHEN 'FC01'.
+
+      "Download Form
+      CASE ABAP_ON.
+        WHEN P_CLOS.
+          ZCL_CO_COMM=>WWW_DOWNLOAD( 'ZCOCR00_C').
+        WHEN OTHERS.
+          ZCL_CO_COMM=>WWW_DOWNLOAD( 'ZCOCR002' ).
+      ENDCASE .
+  ENDCASE .
+
+  "Check Controlling Area
+  ZCL_CO_CHK=>CHECK_KOKRS( P_KOKRS ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  AT_SELECTION_SCREEN_OUTPUT
+*&---------------------------------------------------------------------*
+FORM AT_SELECTION_SCREEN_OUTPUT.
+
+  PERFORM MODIFY_SCREEN_1000.
+
+  P_KOKRST = ZCL_CO_COMM=>GET_KOKRS_TEXT( I_KOKRS = P_KOKRS ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  MODIFY_SCREEN_1000
+*&---------------------------------------------------------------------*
+FORM MODIFY_SCREEN_1000.
+
+  "Screen control
+  LOOP AT SCREEN.
+    CASE SCREEN-GROUP1.
+      WHEN 'INT'.
+        SCREEN-INTENSIFIED = 1.
+      WHEN 'DIS' .
+        SCREEN-INPUT = 0.
+      WHEN 'HID'.
+        SCREEN-ACTIVE = 0.
+    ENDCASE .
+    MODIFY SCREEN.
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  START_OF_SELECTION
+*&---------------------------------------------------------------------*
+FORM START_OF_SELECTION.
+
+  "Read Excel data
+  PERFORM READ_EXCEL.
+
+  "Validate data
+  PERFORM VALIDATE_DATA.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  READ_EXCEL
+*&---------------------------------------------------------------------*
+FORM READ_EXCEL.
+
+  DATA : LT_EXCEL TYPE TABLE OF ZCOS0001 WITH HEADER LINE.
+  CLEAR: GS_EXCEL, GT_EXCEL.
+
+  "Import Excel Data
+  IF P_IFILE IS INITIAL.
+    MESSAGE S024 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  "Excel Uploao
+  DATA(LT_RETURN) = ZCL_CO_COMM=>XXL_UPLOAD( EXPORTING IV_FILENAME = CONV STRING( P_IFILE )
+                                             IMPORTING ET_TAB_CONVERTED_DATA = GT_EXCEL ).
+
+  "Error
+  IF LT_RETURN IS NOT INITIAL.
+    ZCL_CO_COMM=>SHOW_BAPI_MESSAGE( LT_RETURN ).
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  VALIDATE_DATA
+*&---------------------------------------------------------------------*
+FORM VALIDATE_DATA.
+
+  TYPES: BEGIN OF TY_CSKS.
+          INCLUDE STRUCTURE CSKS.
+  TYPES: KTEXT TYPE CSKT-KTEXT,
+         LTEXT TYPE CSKT-LTEXT,
+         END OF TY_CSKS.
+  DATA: LT_CSKS TYPE TABLE OF TY_CSKS.
+
+*  GT_ALV1[] = CORRESPONDING #( GT_EXCEL[] EXCEPT CELLTAB ).
+  CLEAR: GT_ALV1, GT_ALV1[].
+
+  "Generate data
+  LOOP AT GT_EXCEL ASSIGNING FIELD-SYMBOL(<L_EXCEL>).
+
+    "MODIFY DATA
+    TRANSLATE <L_EXCEL>-BKZKP TO UPPER CASE.
+    TRANSLATE <L_EXCEL>-PKZKP TO UPPER CASE.
+
+    "Alpha Conversion
+    <L_EXCEL>-KOSTL =  |{ CONV KOSTL( <L_EXCEL>-KOSTL ) ALPHA = IN }|.
+
+  ENDLOOP.
+
+
+  "Saved data check - ### X
+*  SELECT B~*,
+*         C~KTEXT,
+*         C~LTEXT
+*    FROM @GT_EXCEL AS A INNER JOIN CSKS AS B
+*                   ON A~KOSTL = B~KOSTL
+*                  AND B~KOKRS = @P_KOKRS
+*                        LEFT JOIN CSKT AS C
+*                   ON C~SPRAS = @SY-LANGU
+*                  AND C~KOSTL = B~KOSTL
+*                  AND C~KOKRS = @P_KOKRS
+*                  AND C~DATBI = '99991231'
+*    INTO CORRESPONDING FIELDS OF TABLE @LT_CSKS
+*   ORDER BY B~KOSTL.
+  SELECT B~KOSTL,
+         C~KTEXT,
+         C~LTEXT
+    FROM CSKS AS B
+    LEFT JOIN CSKT AS C ON C~SPRAS = @SY-LANGU
+                       AND C~KOSTL = B~KOSTL
+                       AND C~KOKRS = B~KOKRS
+                       AND C~DATBI = B~DATBI
+    INTO CORRESPONDING FIELDS OF TABLE @LT_CSKS
+     FOR ALL ENTRIES IN @GT_EXCEL
+   WHERE B~KOKRS = @P_KOKRS
+     AND B~KOSTL = @GT_EXCEL-KOSTL
+     AND B~DATBI = '99991231'.
+
+  SORT LT_CSKS BY KOSTL.
+
+  "validate data
+  LOOP AT GT_EXCEL ASSIGNING <L_EXCEL>.
+    IF P_CLOS = ABAP_ON.
+      GT_ALV1-KOSTL = <L_EXCEL>-KOSTL.
+    ELSE.
+      MOVE-CORRESPONDING <L_EXCEL> TO GT_ALV1.
+    ENDIF.
+
+    "Alpha Conversion
+    GT_ALV1-PRCTR =  |{ CONV PRCTR( <L_EXCEL>-PRCTR ) ALPHA = IN }|.
+
+    "Create/Change
+    CASE ZCOC_X.
+      WHEN P_CHNG OR P_CLOS.
+        LOOP AT LT_CSKS ASSIGNING FIELD-SYMBOL(<FS_CSKS>) WHERE KOSTL EQ GT_ALV1-KOSTL.
+          EXIT.
+        ENDLOOP.
+
+        IF SY-SUBRC <> 0.
+          GT_ALV1-STAT_DATA = ICON_LED_RED.
+          CONCATENATE GT_ALV1-MSG_DATA ZCOC_SEPERATOR TEXT-230 INTO GT_ALV1-MSG_DATA.
+        ENDIF.
+
+      WHEN P_CRTE.
+        READ TABLE LT_CSKS ASSIGNING <FS_CSKS> WITH KEY KOSTL = GT_ALV1-KOSTL
+                                                        BINARY SEARCH.
+        IF SY-SUBRC = 0.
+          GT_ALV1-STAT_DATA = ICON_LED_RED.
+          CONCATENATE GT_ALV1-MSG_DATA ZCOC_SEPERATOR TEXT-231 INTO GT_ALV1-MSG_DATA.
+        ENDIF.
+    ENDCASE.
+
+    GT_ALV1-MSG_EXEC = GT_ALV1-MSG_DATA.
+
+    "validation check
+    PERFORM CHECK_VALIDATION USING GT_ALV1.
+
+    "Trim ';' of message
+    IF GT_ALV1-MSG_EXEC(1) = ZCOC_SEPERATOR.
+      GT_ALV1-MSG_EXEC = GT_ALV1-MSG_EXEC+1.
+    ENDIF.
+    IF GT_ALV1-MSG_DATA(1) = ZCOC_SEPERATOR.
+      GT_ALV1-MSG_DATA = GT_ALV1-MSG_DATA+1.
+    ENDIF.
+
+    "Error
+    IF GT_ALV1-STAT_DATA = ICON_LED_RED AND GT_ALV1-MSG_EXEC IS INITIAL.
+      GT_ALV1-MSG_EXEC = TEXT-217.
+    ENDIF.
+
+    CASE ZCOC_X.
+
+      WHEN P_CHNG.
+
+        LOOP AT LT_CSKS ASSIGNING <FS_CSKS> WHERE KOSTL EQ GT_ALV1-KOSTL.
+          GT_ALV1-DATAB = <FS_CSKS>-DATAB.
+          GT_ALV1-DATBI = <FS_CSKS>-DATBI.
+          APPEND GT_ALV1.
+        ENDLOOP.
+
+        IF SY-SUBRC <> 0.
+          APPEND GT_ALV1.
+        ENDIF.
+
+      WHEN P_CRTE.
+        APPEND GT_ALV1.
+
+      WHEN P_CLOS.
+        MOVE-CORRESPONDING <FS_CSKS> TO GT_ALV1.
+        APPEND GT_ALV1.
+
+    ENDCASE.
+    CLEAR: GT_ALV1.
+  ENDLOOP.
+
+  SORT GT_ALV1 BY KOSTL.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  END_OF_SELECTION
+*&---------------------------------------------------------------------*
+FORM END_OF_SELECTION.
+
+  ZCL_CO_COMM=>DATA_COUNT_MESSAGE( EXPORTING IT_TABLE = GT_ALV1[]
+                                   IMPORTING EV_COUNT = DATA(LV_LINE) ).
+  IF LV_LINE > 0.
+    CALL SCREEN 0100.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  EXEC_SAVE
+*&---------------------------------------------------------------------*
+FORM EXEC_SAVE.
+
+  "Selected line
+  GR_ZALV->CLEAR_ROW( ).
+  GR_ZALV->MO_GRID->GET_SELECTED_ROWS( IMPORTING ET_INDEX_ROWS = GR_ZALV->MT_ROW ).
+
+  IF GR_ZALV->MT_ROW IS INITIAL.
+    MESSAGE I002.
+    EXIT.
+  ELSE.
+
+    LOOP AT GR_ZALV->MT_ROW ASSIGNING FIELD-SYMBOL(<FS_ROW>).
+
+      READ TABLE GT_ALV1 INDEX <FS_ROW>-INDEX.
+      IF SY-SUBRC = 0 AND
+         GT_ALV1-STAT_DATA = ICON_LED_RED.
+        DATA(LV_ERR) = ZCOC_X.
+        EXIT.
+      ENDIF.
+
+    ENDLOOP.
+
+    IF LV_ERR = ZCOC_X.
+      MESSAGE I035.
+      EXIT.
+    ELSE.
+
+      CASE ZCOC_X.
+
+        WHEN P_CHNG. "##
+
+          IF ZCL_CO_COMM=>POPUP_TO_CONFIRM( CONV #( TEXT-M01 ) ) EQ '1'.
+            PERFORM EXEC_CHANGE_COSTCENTER.
+          ENDIF.
+
+        WHEN P_CRTE. "##
+
+          IF ZCL_CO_COMM=>POPUP_TO_CONFIRM( CONV #( TEXT-M02 ) ) EQ '1'.
+            PERFORM EXEC_CREATE_COSTCENTER.
+          ENDIF.
+
+        WHEN P_CLOS. "##
+
+          IF ZCL_CO_COMM=>POPUP_TO_CONFIRM( CONV #( TEXT-M03 ) ) EQ '1'.
+            PERFORM EXEC_CLOSE_COSTCENTER.
+          ENDIF.
+
+      ENDCASE.
+
+    ENDIF.
+
+  ENDIF.
+
+  "Refresh ALV
+  GR_ZALV->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_ALV_0100
+*&---------------------------------------------------------------------*
+FORM CREATE_ALV_0100.
+
+  PERFORM CREATE_OBJ_ALV.
+  PERFORM SET_TOP_OF_PAGE.
+  PERFORM SET_EVENT.
+  PERFORM SET_FDCAT.
+  PERFORM SET_TOOLBAR.
+  PERFORM SET_LAYOUT.
+  PERFORM SET_SORT.
+  PERFORM SHOW_ALV TABLES GT_ALV1 USING GR_ZALV.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CREATE_OBJ_ALV
+*&---------------------------------------------------------------------*
+FORM CREATE_OBJ_ALV.
+
+  "1.
+  IF GR_ZALV->MO_DOCKING IS NOT BOUND.
+    GR_ZALV->MO_DOCKING = NEW #( SIDE      = CL_GUI_DOCKING_CONTAINER=>ALIGN_AT_RIGHT
+                                 EXTENSION = 600 ).
+  ENDIF.
+
+  "2.
+  IF GR_ZALV->MO_SPLIT IS NOT BOUND.
+    GR_ZALV->MO_SPLIT = NEW #( ROWS    = 2
+                               COLUMNS = 1
+                               PARENT  = GR_ZALV->MO_DOCKING ).
+  ENDIF.
+
+  CHECK GR_ZALV->MO_SPLIT IS BOUND.
+
+  "3.
+  IF GR_ZALV->MO_HEAD IS NOT BOUND.
+    GR_ZALV->MO_HEAD = GR_ZALV->MO_SPLIT->GET_CONTAINER( ROW    = 1
+                                                         COLUMN = 1 ).
+  ENDIF.
+
+  "4.
+  IF GR_ZALV->MO_BODY IS NOT BOUND.
+    GR_ZALV->MO_BODY = GR_ZALV->MO_SPLIT->GET_CONTAINER( ROW    = 2
+                                                         COLUMN = 1 ).
+  ENDIF.
+
+  "5.
+  IF GR_ZALV->MO_BODY IS BOUND AND GR_ZALV->MO_GRID IS NOT BOUND.
+    GR_ZALV->MO_GRID = NEW #( I_PARENT = GR_ZALV->MO_BODY ).
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+FORM SET_TOP_OF_PAGE.
+
+  DATA: LT_INCLU TYPE ZCL_CO_COMM=>TY_HEADINFO_T,
+        LT_EXCLU TYPE MGV_LAMA_RSLDBSELOP_TT.
+
+  CHECK GR_ZALV->MO_TOP_OF_PAGE IS NOT BOUND.
+
+  GR_ZALV->MO_TOP_OF_PAGE = NEW #( STYLE = 'ALV_GRID' ).
+
+  LT_EXCLU = VALUE #( ( NAME = 'P_IFILE' ) ).
+
+  ZCL_CO_COMM=>CREATE_TOP_OF_PAGE( EXPORTING IO_PARENTS  = GR_ZALV->MO_HEAD
+                                             IO_DOCU     = GR_ZALV->MO_TOP_OF_PAGE
+                                             IT_EXCLU    = LT_EXCLU
+                                             IT_INCLU    = LT_INCLU
+                                   CHANGING  CO_SPLITTER = GR_ZALV->MO_SPLIT ).
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_EVENT
+*&---------------------------------------------------------------------*
+FORM SET_EVENT .
+
+  IF GR_EVENT_HANDLER IS INITIAL.
+    CREATE OBJECT GR_EVENT_HANDLER.
+  ENDIF.
+
+  GR_ZALV->MO_GRID->REGISTER_EDIT_EVENT( CL_GUI_ALV_GRID=>MC_EVT_MODIFIED ).
+
+  SET HANDLER: GR_EVENT_HANDLER->HANDLE_HOTSPOT_CLICK FOR GR_ZALV->MO_GRID,
+               GR_EVENT_HANDLER->HANDLE_DOUBLE_CLICK  FOR GR_ZALV->MO_GRID,
+               GR_EVENT_HANDLER->HANDLE_TOOLBAR       FOR GR_ZALV->MO_GRID,
+               GR_EVENT_HANDLER->HANDLE_USER_COMMAND  FOR GR_ZALV->MO_GRID.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_FDCAT
+*&---------------------------------------------------------------------*
+FORM SET_FDCAT .
+
+  GR_ZALV->MAKE_FIELDCATALOG( IV_MODE = 'R' IT_TABLE = GT_ALV1[] ).
+  LOOP AT GR_ZALV->MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FDCAT>).
+
+    <FS_FDCAT>-NO_OUT = SPACE.
+    CASE <FS_FDCAT>-FIELDNAME.
+
+      WHEN 'STAT_DATA'.
+        <FS_FDCAT>-COL_POS   = 1.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+        <FS_FDCAT>-JUST      = ZCOC_C.
+        <FS_FDCAT>-COLTEXT   = TEXT-F01.
+      WHEN 'STAT_EXEC'.
+        <FS_FDCAT>-COL_POS   = 2.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+        <FS_FDCAT>-JUST      = ZCOC_C.
+        <FS_FDCAT>-COLTEXT   = TEXT-F00.
+        <FS_FDCAT>-OUTPUTLEN = 8.
+      WHEN 'KOSTL'.
+        <FS_FDCAT>-COL_POS   = 11.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+      WHEN 'KTEXT'.
+        <FS_FDCAT>-COL_POS   = 12.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+      WHEN 'LTEXT'.
+        <FS_FDCAT>-COL_POS   = 13.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+      WHEN 'DATAB'.
+        <FS_FDCAT>-COL_POS   = 14.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+      WHEN 'DATBI'.
+        <FS_FDCAT>-COL_POS   = 15.
+        <FS_FDCAT>-KEY       = ZCOC_X.
+      WHEN 'VERAK'.
+        <FS_FDCAT>-COL_POS   = 21.
+      WHEN 'KOSAR'.
+        <FS_FDCAT>-COL_POS   = 22.
+      WHEN 'KHINR'.
+        <FS_FDCAT>-COL_POS   = 23.
+      WHEN 'FUNC_AREA'.
+        <FS_FDCAT>-COL_POS   = 25.
+      WHEN 'WAERS'.
+        <FS_FDCAT>-COL_POS   = 26.
+      WHEN 'PRCTR'.
+        <FS_FDCAT>-COL_POS   = 31.
+      WHEN 'MSG_EXEC'.
+        <FS_FDCAT>-COL_POS   = 99.
+        <FS_FDCAT>-COLTEXT   = TEXT-F07.
+        <FS_FDCAT>-OUTPUTLEN = 40.
+      WHEN OTHERS.
+        <FS_FDCAT>-NO_OUT    = ZCOC_X.
+    ENDCASE.
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM SET_TOOLBAR .
+  GR_ZALV->SET_TOOLBAR_STD( ).
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_LAYOUT
+*&---------------------------------------------------------------------*
+FORM SET_LAYOUT .
+  GR_ZALV->SET_LAYOUT( IV_TYPE = '3' ).
+  GR_ZALV->MS_LAYOUT-STYLEFNAME = 'CELLTAB'.
+  CLEAR GR_ZALV->MS_LAYOUT-CWIDTH_OPT.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SET_SORT
+*&---------------------------------------------------------------------*
+FORM SET_SORT .
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_ALV
+*&---------------------------------------------------------------------*
+FORM SHOW_ALV TABLES PT_ITAB
+              USING  PO_ALV TYPE REF TO ZCL_CO_ALV.
+
+  DATA: LS_DISVARIANT TYPE DISVARIANT.
+  CASE SY-DYNNR.
+    WHEN 0100.
+      LS_DISVARIANT = PO_ALV->MS_VARIANT.
+  ENDCASE.
+  CALL METHOD PO_ALV->MO_GRID->SET_TABLE_FOR_FIRST_DISPLAY
+    EXPORTING
+      IS_VARIANT                    = LS_DISVARIANT
+      I_SAVE                        = PO_ALV->MV_VARIANT_SAVE
+      I_DEFAULT                     = ABAP_ON
+      IS_LAYOUT                     = PO_ALV->MS_LAYOUT
+      IT_TOOLBAR_EXCLUDING          = PO_ALV->MT_UI_FUNCTIONS
+    CHANGING
+      IT_OUTTAB                     = PT_ITAB[]
+      IT_FIELDCATALOG               = PO_ALV->MT_FDCAT_LVC
+      IT_SORT                       = PO_ALV->MT_SORT
+    EXCEPTIONS
+      INVALID_PARAMETER_COMBINATION = 1
+      PROGRAM_ERROR                 = 2
+      TOO_MANY_LINES                = 3
+      OTHERS                        = 4.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_TOOLBAR
+*&---------------------------------------------------------------------*
+FORM HANDLE_TOOLBAR USING SENDER
+                          P_OBJECT TYPE REF TO CL_ALV_EVENT_TOOLBAR_SET
+                          P_INTERACTIVE.
+
+  DATA: LV_TOT   TYPE TEXT20,
+        LV_GREEN TYPE TEXT20,
+        LV_RED   TYPE TEXT20.
+
+  PERFORM GET_COUNT CHANGING LV_TOT LV_GREEN LV_RED.
+
+  P_OBJECT->MT_TOOLBAR[] = VALUE #( BASE P_OBJECT->MT_TOOLBAR[]
+                             ( FUNCTION = ''     ICON = ''             BUTN_TYPE = 3  TEXT = ''        QUICKINFO = '' )
+                             ( FUNCTION = '&TOT' ICON = ICON_SUM       BUTN_TYPE = '' TEXT = LV_TOT    QUICKINFO = '' )
+                             ( FUNCTION = '&GRE' ICON = ICON_LED_GREEN BUTN_TYPE = '' TEXT = LV_GREEN  QUICKINFO = '' )
+                             ( FUNCTION = '&RED' ICON = ICON_LED_RED   BUTN_TYPE = '' TEXT = LV_RED    QUICKINFO = '' )
+                             ( FUNCTION = ''     ICON = ''             BUTN_TYPE = 3  TEXT = ''        QUICKINFO = '' )
+                             ( FUNCTION = 'LEDG' ICON = ICON_COLOR     BUTN_TYPE = '' TEXT = 'Ledgend' QUICKINFO = 'Icon Ledgend' )
+                            ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      FORM  HANDLE_USER_COMMAND
+*&---------------------------------------------------------------------*
+FORM HANDLE_USER_COMMAND USING SENDER
+                               P_UCOMM.
+
+  CALL METHOD CL_GUI_CFW=>SET_NEW_OK_CODE( P_UCOMM ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      FORM  UCOMM_LEDG
+*&---------------------------------------------------------------------*
+FORM UCOMM_LEDG .
+
+  CALL SCREEN 0110 STARTING AT 10 10 ENDING AT 70 18.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      FORM  FILTER_ALV_DATA
+*&---------------------------------------------------------------------*
+FORM FILTER_ALV_DATA USING PV_TYPE.
+
+  CASE PV_TYPE.
+
+    WHEN ZCOC_A.
+
+      CLEAR GR_ZALV->MT_FILTER.
+    WHEN ZCOC_G.
+
+      GR_ZALV->MT_FILTER = VALUE #( ( FIELDNAME = 'STAT_DATA' LOW = ICON_LED_GREEN SIGN = 'I' OPTION = 'EQ' ) ).
+    WHEN ZCOC_R.
+
+      GR_ZALV->MT_FILTER = VALUE #( ( FIELDNAME = 'STAT_DATA' LOW = ICON_LED_RED SIGN = '1' OPTION = 'EQ' ) ).
+
+  ENDCASE.
+
+  GR_ZALV->MO_GRID->SET_FILTER_CRITERIA( IT_FILTER = GR_ZALV->MT_FILTER ).
+  GR_ZALV->MO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = VALUE #( ROW = ABAP_ON COL = ABAP_ON ) ).
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      FORM  GET_COUNT
+*&---------------------------------------------------------------------*
+FORM GET_COUNT CHANGING PV_TOT
+                        PV_GREEN
+                        PV_RED.
+
+  DATA: LV_CNT_TOTAL TYPE I,
+        LV_CNT_GREEN TYPE I,
+        LV_CNT_RED   TYPE I,
+        LV_CNT_CHAR  TYPE CHAR20.
+
+  LOOP AT GT_ALV1 ASSIGNING FIELD-SYMBOL(<FS_ALV1>).
+    LV_CNT_TOTAL = LV_CNT_TOTAL + 1.
+    CASE <FS_ALV1>-STAT_DATA.
+      WHEN ICON_LED_GREEN.
+        LV_CNT_GREEN = LV_CNT_GREEN + 1.
+      WHEN ICON_LED_RED.
+        LV_CNT_RED = LV_CNT_RED + 1.
+    ENDCASE.
+
+  ENDLOOP.
+  PV_TOT =   | { TEXT-501 }: { LV_CNT_TOTAL NUMBER = ENVIRONMENT }|.
+  PV_GREEN = | { TEXT-502 }: { LV_CNT_GREEN NUMBER = ENVIRONMENT }|.
+  PV_RED =   | { TEXT-503 }: { LV_CNT_RED   NUMBER = ENVIRONMENT }|.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_VALIDATION
+*&---------------------------------------------------------------------*
+FORM CHECK_VALIDATION USING PS_ALV LIKE GT_ALV1.
+
+  DATA: LV_CNT   TYPE I,
+        LV_MSG   TYPE STRING,
+        LV_EXIST TYPE C.
+
+  CHECK PS_ALV-STAT_DATA NE ICON_LED_RED.
+  PS_ALV-STAT_DATA = ICON_LED_GREEN.
+  PS_ALV-STAT_EXEC = SPACE.
+
+  "Duplicate check
+  LOOP AT GT_EXCEL TRANSPORTING NO FIELDS WHERE KOSTL = PS_ALV-KOSTL.
+    LV_CNT = LV_CNT + 1.
+    IF LV_CNT > 1.
+      PS_ALV-STAT_DATA = ICON_LED_RED.
+      LV_MSG = TEXT-201.
+      CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+      EXIT.
+    ENDIF.
+  ENDLOOP.
+
+  "Obligatory
+  IF PS_ALV-KOSTL IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-202.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  CHECK P_CLOS IS INITIAL.
+
+  "KTEXT
+  IF PS_ALV-KTEXT IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-203.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "LTEXT
+  IF PS_ALV-LTEXT IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-204.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  IF P_CRTE = ZCOC_X.
+
+    IF PS_ALV-DATAB EQ '' OR
+       PS_ALV-DATAB EQ '00000000'.
+      PS_ALV-STAT_DATA = ICON_LED_RED.
+      LV_MSG = TEXT-205.
+      CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+    ENDIF.
+
+    IF PS_ALV-DATBI EQ '' OR
+    PS_ALV-DATAB EQ '00000000'.
+      PS_ALV-STAT_DATA = ICON_LED_RED.
+      LV_MSG = TEXT-206.
+      CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+    ENDIF.
+
+  ENDIF.
+
+  "Person Responsible
+  IF PS_ALV-VERAK IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-207.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "CostCenter Catag.
+  IF PS_ALV-KOSAR IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-208.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "Functional Area
+  IF PS_ALV-FUNC_AREA IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-211.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "Hierarchy
+  IF PS_ALV-KHINR IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-209.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "Currency
+  IF PS_ALV-WAERS IS INITIAL.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    LV_MSG = TEXT-212.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR LV_MSG INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+  "KOSAR
+  IF PS_ALV-KOSAR IS NOT INITIAL.
+    PERFORM CHECK_KOSAR USING PS_ALV.
+  ENDIF.
+
+  "Functional Area
+  IF PS_ALV-FUNC_AREA IS NOT INITIAL.
+    PERFORM CHECK_FUNC_AREA USING PS_ALV.
+  ENDIF.
+
+  "Currency
+  IF PS_ALV-WAERS IS NOT INITIAL.
+    PERFORM CHECK_WAERS USING PS_ALV.
+  ENDIF.
+
+  "Profit Center
+  IF PS_ALV-PRCTR IS NOT INITIAL.
+    PERFORM CHECK_PRCTR USING PS_ALV.
+  ENDIF.
+
+  "Actual Lock Indicator
+  IF PS_ALV-BKZKP NE ZCOC_L AND
+  PS_ALV-BKZKP NE ZCOC_U AND
+  PS_ALV-BKZKP NE ' '.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-410 INTO PS_ALV-MSG_DATA.
+  ELSE.
+    IF PS_ALV-BKZKP = ZCOC_L.
+      PS_ALV-BKZKPT = TEXT-CO1.
+    ELSE.
+      CLEAR PS_ALV-BKZKPT.
+    ENDIF.
+  ENDIF.
+
+  "Plan Lock Indicator
+  IF PS_ALV-PKZKP NE ZCOC_L AND
+  PS_ALV-PKZKP NE ZCOC_U AND
+  PS_ALV-PKZKP NE ' '.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-410 INTO PS_ALV-MSG_DATA.
+  ELSE.
+    IF PS_ALV-PKZKP = ZCOC_L.
+      PS_ALV-PKZKPT = TEXT-CO1.
+    ELSE.
+      CLEAR PS_ALV-PKZKPT.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  VALUE_TO_STRING_TRANSFORM
+*&---------------------------------------------------------------------*
+FORM VALUE_TO_STRING_TRANSFORM USING    PS_BAPI_EXTEN
+                                        PV_STR
+                               CHANGING PS_EXTENSION STRUCTURE BAPIPAREX.
+
+  FIELD-SYMBOLS: <FS_01> TYPE C,
+                 <FS_02> TYPE C.
+
+  DATA: LV_STRING  TYPE STRING,
+        LV_OFFSET  TYPE I,
+        L_REF_CONT TYPE REF TO CL_NLS_STRUC_CONTAINER,
+        LT_CP_TAB  TYPE NLS_LANGU_CP_TAB.
+
+  DESCRIBE FIELD PS_EXTENSION-STRUCTURE LENGTH LV_OFFSET IN CHARACTER MODE.
+
+  CALL FUNCTION 'NLS_GET_LANGU_CP_TAB'
+    EXPORTING
+      DESTINATION = 'NONE'
+    TABLES
+      CP_TAB      = LT_CP_TAB.
+
+  L_REF_CONT = CL_NLS_STRUC_CONTAINER=>CREATE( CP_TAB = LT_CP_TAB ).
+
+  ASSIGN PS_BAPI_EXTEN TO <FS_01> CASTING.
+  L_REF_CONT->STRUC_TO_CONT( EXPORTING LANGU = SY-LANGU
+                                       STRUC = <FS_01>
+                             IMPORTING CONT  = LV_STRING ).
+
+  ASSIGN PS_EXTENSION TO <FS_02> CASTING.
+  MOVE LV_STRING TO <FS_02>+LV_OFFSET.
+  MOVE PV_STR TO PS_EXTENSION-STRUCTURE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  EXEC_CHANGE_COSTCENTER
+*&---------------------------------------------------------------------*
+FORM EXEC_CHANGE_COSTCENTER .
+
+  DATA : LT_RETURN  TYPE TABLE OF BAPIRET2,
+         LS_RETURN  TYPE BAPIRET2,
+         LS_EXTEN   TYPE BAPI_TE_CSKS,
+         LT_EXTENIN LIKE TABLE OF BAPIPAREX WITH HEADER LINE,
+         LS_CSKS_EX LIKE CSKS_EX,
+         LV_ERROR   TYPE I,
+         LV_SUCCE   TYPE I.
+
+  CONSTANTS: C_STRUCT TYPE TE_STRUC VALUE 'BAPI_TE_CSKS'.
+
+  "Create Cost Center
+  LOOP AT GR_ZALV->MT_ROW ASSIGNING FIELD-SYMBOL(<FS_ROW>).
+
+    READ TABLE GT_ALV1 INDEX <FS_ROW>-INDEX.
+
+    IF SY-SUBRC EQ 0.
+
+      "EXEC ON GREEN OF DATA
+      CHECK GT_ALV1-STAT_DATA = ICON_LED_GREEN.
+
+      "EXCEPT GREEN DATA OF STATUS(ALREADY CREATED)
+      CHECK GT_ALV1-STAT_EXEC <> ICON_LED_GREEN.
+      CLEAR: GT_ALV1-STAT_EXEC, GT_ALV1-MSG_EXEC,
+             GT_CCENTERS, GT_CCENTERS[],
+             GT_RETURN,   GT_RETURN[],
+             LT_EXTENIN,  LT_EXTENIN[].
+
+      SELECT SINGLE *
+        FROM CSKS AS A
+        LEFT OUTER JOIN CSKT AS B ON A~KOKRS = B~KOKRS
+                                 AND A~KOSTL = B~KOSTL
+                                 AND A~DATBI = B~DATBI
+                                 AND B~SPRAS = SY-LANGU
+        INTO CORRESPONDING FIELDS OF LS_CSKS_EX
+       WHERE A~KOKRS EQ P_KOKRS
+         AND A~KOSTL EQ GT_ALV1-KOSTL
+         AND A~DATBI EQ GT_ALV1-DATBI.
+
+      GT_CCENTERS-COSTCENTER = GT_ALV1-KOSTL.
+      GT_CCENTERS-VALID_FROM = LS_CSKS_EX-DATAB.
+      GT_CCENTERS-VALID_TO   = LS_CSKS_EX-DATBI.
+
+      IF GT_ALV1-KTEXT IS NOT INITIAL.
+        GT_CCENTERS-NAME = GT_ALV1-KTEXT.
+      ENDIF.
+      IF GT_ALV1-LTEXT IS NOT INITIAL.
+        GT_CCENTERS-DESCRIPT = GT_ALV1-LTEXT.
+      ENDIF.
+      IF GT_ALV1-VERAK IS NOT INITIAL.
+        GT_CCENTERS-PERSON_IN_CHARGE = GT_ALV1-VERAK.
+      ENDIF.
+      IF GT_ALV1-KOSAR IS NOT INITIAL.
+        GT_CCENTERS-COSTCENTER_TYPE = GT_ALV1-KOSAR.
+      ENDIF.
+      IF GT_ALV1-KHINR IS NOT INITIAL.
+        GT_CCENTERS-COSTCTR_HIER_GRP = GT_ALV1-KHINR.
+      ENDIF.
+      IF GT_ALV1-FUNC_AREA IS NOT INITIAL.
+        GT_CCENTERS-FUNC_AREA = GT_ALV1-FUNC_AREA.
+      ENDIF.
+      IF GT_ALV1-WAERS IS NOT INITIAL.
+        GT_CCENTERS-CURRENCY = GT_ALV1-WAERS.
+      ENDIF.
+      IF GT_ALV1-PRCTR IS NOT INITIAL.
+        GT_CCENTERS-PROFIT_CTR = GT_ALV1-PRCTR.
+      ENDIF.
+      IF GT_ALV1-BKZKP IS NOT INITIAL.
+        CASE GT_ALV1-BKZKP.
+          WHEN ZCOC_L.
+            GT_CCENTERS-LOCK_IND_ACTUAL_PRIMARY_COSTS = ZCOC_X.
+          WHEN ZCOC_U.
+            GT_CCENTERS-LOCK_IND_ACTUAL_PRIMARY_COSTS = '.'.
+        ENDCASE.
+      ENDIF.
+      IF GT_ALV1-PKZKP IS NOT INITIAL.
+        CASE GT_ALV1-PKZKP.
+          WHEN ZCOC_L.
+            GT_CCENTERS-LOCK_IND_PLAN_PRIMARY_COSTS = ZCOC_X.
+          WHEN ZCOC_U.
+            GT_CCENTERS-LOCK_IND_PLAN_PRIMARY_COSTS = '.'.
+        ENDCASE.
+      ENDIF.
+      APPEND GT_CCENTERS.
+
+      "EXTENDED FIELDS
+      MOVE-CORRESPONDING GT_ALV1 TO LS_EXTEN.
+      LS_EXTEN-COSTCENTER = GT_ALV1-KOSTL.
+
+      "CONV. Structure -> BAPI Extension
+      PERFORM VALUE_TO_STRING_TRANSFORM USING    LS_EXTEN
+                                                 C_STRUCT
+                                        CHANGING LT_EXTENIN.
+      APPEND LT_EXTENIN.
+      CALL FUNCTION 'BAPI_COSTCENTER_CHANGEMULTIPLE'
+        EXPORTING
+          CONTROLLINGAREA = P_KOKRS
+        TABLES
+          COSTCENTERLIST  = GT_CCENTERS
+          RETURN          = GT_RETURN
+          EXTENSIONIN     = LT_EXTENIN.
+
+      IF GT_RETURN[] IS INITIAL.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            WAIT   = 'X'
+          IMPORTING
+            RETURN = LS_RETURN.
+
+        IF LS_RETURN-TYPE = 'E'.
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+          LV_ERROR = LV_ERROR + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_RED.
+
+          CONCATENATE GT_ALV1-MSG_EXEC LS_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+                                                         SEPARATED BY ZCOC_SEPERATOR.
+
+        ELSE.
+          LV_SUCCE = LV_SUCCE + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_GREEN.
+          GT_ALV1-MSG_EXEC = TEXT-S01.
+        ENDIF.
+
+      ELSE.
+
+        LV_ERROR = LV_ERROR + 1.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+        GT_ALV1-STAT_EXEC = ICON_LED_RED.
+
+        LOOP AT GT_RETURN.
+          CONCATENATE GT_ALV1-MSG_EXEC GT_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+          SEPARATED BY ZCOC_SEPERATOR.
+        ENDLOOP.
+
+      ENDIF.
+
+      MODIFY GT_ALV1 INDEX <FS_ROW>-INDEX.
+    ENDIF.
+
+  ENDLOOP.
+
+  DATA(LV_MSG) = |Changed: { LV_SUCCE }, Error: { LV_ERROR }|.
+  MESSAGE S000 WITH LV_MSG.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  EXEC_CLOSE_COSTCENTER
+*&---------------------------------------------------------------------*
+FORM EXEC_CLOSE_COSTCENTER .
+
+  DATA : LT_RETURN    TYPE TABLE OF BAPIRET2,
+         LS_RETURN    TYPE BAPIRET2,
+         LS_EXTEN     TYPE BAPI_TE_CSKS,
+         LT_EXTENIN   LIKE TABLE OF BAPIPAREX WITH HEADER LINE,
+         LS_CSKS_EX   LIKE CSKS_EX,
+         LV_ERROR     TYPE I,
+         LV_SUCCE     TYPE I,
+         LV_CLOSE_TXT TYPE CHAR10 VALUE '(Closed)'.
+
+  CONSTANTS: C_STRUCT TYPE TE_STRUC VALUE 'BAPI_TE_CSKS'.
+
+  "CLOSE COSTCENTER
+  DELETE GR_ZALV->MT_ROW WHERE ROWTYPE IS NOT INITIAL.
+
+  LOOP AT GR_ZALV->MT_ROW ASSIGNING FIELD-SYMBOL(<FS_ROW>).
+
+    READ TABLE GT_ALV1 INDEX <FS_ROW>-INDEX.
+    IF SY-SUBRC EQ 0.
+
+      CHECK GT_ALV1-STAT_DATA = ICON_LED_GREEN.
+      CHECK GT_ALV1-STAT_EXEC <> ICON_LED_GREEN.
+
+      CLEAR: GT_ALV1-STAT_EXEC, GT_ALV1-MSG_EXEC,
+      GT_CCENTERS, GT_CCENTERS[],
+      GT_RETURN, GT_RETURN[],
+      LT_EXTENIN, LT_EXTENIN[].
+
+      SELECT SINGLE *
+        FROM CSKS AS A
+        LEFT OUTER JOIN CSKT AS B ON A~KOKRS = B~KOKRS
+                            AND A~KOSTL = B~KOSTL
+                            AND A~DATBI = B~DATBI
+                            AND B~SPRAS = SY-LANGU
+        INTO CORRESPONDING FIELDS OF LS_CSKS_EX
+       WHERE A~KOKRS EQ P_KOKRS
+         AND A~KOSTL EQ GT_ALV1-KOSTL
+         AND A~DATBI EQ GT_ALV1-DATBI.
+
+      GT_CCENTERS[] = VALUE #( ( COSTCENTER                    = GT_ALV1-KOSTL
+                                 VALID_FROM                    = LS_CSKS_EX-DATAB
+                                 VALID_TO                      = LS_CSKS_EX-DATBI
+                                 NAME                          = LV_CLOSE_TXT && GT_ALV1-KTEXT
+                                 DESCRIPT                      = LV_CLOSE_TXT && GT_ALV1-LTEXT
+                                 LOCK_IND_ACTUAL_PRIMARY_COSTS = ZCOC_X
+                                 LOCK_IND_PLAN_PRIMARY_COSTS   = ZCOC_X
+                                 LOCK_IND_ACT_SECONDARY_COSTS  = ZCOC_X
+                                 LOCK_IND_PLAN_SECONDARY_COSTS = ZCOC_X
+                                 LOCK_IND_ACTUAL_REVENUES      = ZCOC_X
+                                 LOCK_IND_PLAN_REVENUES        = ZCOC_X
+                                 LOCK_IND_COMMITMENT_UPDATE    = ZCOC_X ) ).
+
+      CALL FUNCTION 'BAPI_COSTCENTER_CHANGEMULTIPLE'
+        EXPORTING
+          CONTROLLINGAREA = P_KOKRS
+        TABLES
+          COSTCENTERLIST  = GT_CCENTERS
+          RETURN          = GT_RETURN.
+
+
+      IF GT_RETURN[] IS INITIAL.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            WAIT   = 'X'
+          IMPORTING
+            RETURN = LS_RETURN.
+
+        IF LS_RETURN-TYPE = 'E'.
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+          LV_ERROR = LV_ERROR + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_RED.
+          CONCATENATE GT_ALV1-MSG_EXEC LS_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+          SEPARATED BY ZCOC_SEPERATOR.
+        ELSE.
+          LV_SUCCE = LV_SUCCE + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_GREEN.
+          GT_ALV1-MSG_EXEC = TEXT-SO1.
+        ENDIF.
+
+      ELSE.
+
+        LV_ERROR = LV_ERROR + 1.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+        GT_ALV1-STAT_EXEC = ICON_LED_RED.
+
+        LOOP AT GT_RETURN.
+          CONCATENATE GT_ALV1-MSG_EXEC GT_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+          SEPARATED BY ZCOC_SEPERATOR.
+        ENDLOOP.
+
+      ENDIF.
+
+      MODIFY GT_ALV1 INDEX <FS_ROW>-INDEX.
+    ENDIF.
+  ENDLOOP.
+
+  DATA(LV_MSG) = |Closed: { LV_SUCCE }, Error: { LV_ERROR }|.
+  MESSAGE S000 WITH LV_MSG.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  EXEC_CLOSE_COSTCENTER
+*&---------------------------------------------------------------------*
+FORM EXEC_CREATE_COSTCENTER .
+
+  DATA : LT_RETURN  TYPE TABLE OF BAPIRET2,
+         LS_RETURN  TYPE BAPIRET2,
+         LS_EXTEN   TYPE BAPI_TE_CSKS,
+         LT_EXTENIN LIKE TABLE OF BAPIPAREX WITH HEADER LINE,
+         LV_ERROR   TYPE I,
+         LV_SUCCE   TYPE I.
+  CONSTANTS: C_STRUCT TYPE TE_STRUC VALUE 'BAPI_TE_CSKS'.
+
+  "Create Cost Center
+  LOOP AT GR_ZALV->MT_ROW ASSIGNING FIELD-SYMBOL(<FS_ROW>).
+    READ TABLE GT_ALV1 INDEX <FS_ROW>-INDEX.
+    IF SY-SUBRC EQ 0.
+
+
+      CHECK GT_ALV1-STAT_DATA = ICON_LED_GREEN.
+      CHECK GT_ALV1-STAT_EXEC <> ICON_LED_GREEN.
+
+      CLEAR: GT_ALV1-STAT_EXEC, GT_ALV1-MSG_EXEC.
+      CLEAR: GT_CCENTERS, GT_CCENTERS[],
+      GT_RETURN, GT_RETURN[],
+      LT_EXTENIN, LT_EXTENIN[].
+
+      GT_CCENTERS-COSTCENTER       = GT_ALV1-KOSTL.
+      GT_CCENTERS-NAME             = GT_ALV1-KTEXT.
+      GT_CCENTERS-DESCRIPT         = GT_ALV1-LTEXT.
+      GT_CCENTERS-VALID_FROM       = GT_ALV1-DATAB.
+      GT_CCENTERS-VALID_TO         = GT_ALV1-DATBI.
+      GT_CCENTERS-PERSON_IN_CHARGE = GT_ALV1-VERAK.
+      GT_CCENTERS-COSTCENTER_TYPE  = GT_ALV1-KOSAR.
+      GT_CCENTERS-COSTCTR_HIER_GRP = GT_ALV1-KHINR.
+      GT_CCENTERS-COMP_CODE        = ZCL_CO_COMM=>GET_BUKRS_FROM_KOKRS( P_KOKRS ).
+      GT_CCENTERS-FUNC_AREA        = GT_ALV1-FUNC_AREA.
+      GT_CCENTERS-CURRENCY         = GT_ALV1-WAERS.
+      GT_CCENTERS-PROFIT_CTR       = GT_ALV1-PRCTR.
+
+      "Actual Lock
+      IF GT_ALV1-BKZKP IS NOT INITIAL.
+        CASE GT_ALV1-BKZKP.
+          WHEN ZCOC_L.
+            GT_CCENTERS-LOCK_IND_ACTUAL_PRIMARY_COSTS = ZCOC_X.
+          WHEN ZCOC_U.
+            GT_CCENTERS-LOCK_IND_ACTUAL_PRIMARY_COSTS = '.'.
+        ENDCASE.
+      ENDIF.
+
+      "Plan Lock
+      IF GT_ALV1-PKZKP IS NOT INITIAL.
+        CASE GT_ALV1-PKZKP.
+          WHEN ZCOC_L.
+            GT_CCENTERS-LOCK_IND_PLAN_PRIMARY_COSTS = ZCOC_X.
+          WHEN ZCOC_U.
+            GT_CCENTERS-LOCK_IND_PLAN_PRIMARY_COSTS = '.'.
+        ENDCASE.
+      ENDIF.
+      APPEND GT_CCENTERS.
+
+      "Extended Fields
+      MOVE-CORRESPONDING GT_ALV1 TO LS_EXTEN.
+      LS_EXTEN-COSTCENTER = GT_ALV1-KOSTL.
+
+      "CONV. Structure -> BAPI Extension
+      PERFORM VALUE_TO_STRING_TRANSFORM USING    LS_EXTEN
+                                                 C_STRUCT
+                                        CHANGING LT_EXTENIN.
+      APPEND LT_EXTENIN.
+      CALL FUNCTION 'BAPI_COSTCENTER_CREATEMULTIPLE'
+        EXPORTING
+          CONTROLLINGAREA = P_KOKRS
+        TABLES
+          COSTCENTERLIST  = GT_CCENTERS
+          RETURN          = GT_RETURN
+          EXTENSIONIN     = LT_EXTENIN.
+
+      IF GT_RETURN[] IS INITIAL.
+
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            WAIT   = 'X'
+          IMPORTING
+            RETURN = LS_RETURN.
+
+        IF LS_RETURN-TYPE = 'E'.
+          CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+          LV_ERROR = LV_ERROR + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_RED.
+          CONCATENATE GT_ALV1-MSG_EXEC LS_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+          SEPARATED BY ZCOC_SEPERATOR.
+        ELSE.
+          LV_SUCCE = LV_SUCCE + 1.
+          GT_ALV1-STAT_EXEC = ICON_LED_GREEN.
+          GT_ALV1-MSG_EXEC = TEXT-SO1.
+        ENDIF.
+
+      ELSE.
+
+        LV_ERROR = LV_ERROR + 1.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+        GT_ALV1-STAT_EXEC = ICON_LED_RED.
+        LOOP AT GT_RETURN.
+          CONCATENATE GT_ALV1-MSG_EXEC GT_RETURN-MESSAGE INTO GT_ALV1-MSG_EXEC
+          SEPARATED BY ZCOC_SEPERATOR.
+        ENDLOOP.
+
+      ENDIF.
+
+      IF GT_ALV1-MSG_EXEC(1) = ZCOC_SEPERATOR.
+        GT_ALV1-MSG_EXEC = GT_ALV1-MSG_EXEC+1.
+      ENDIF.
+
+      MODIFY GT_ALV1 INDEX <FS_ROW>-INDEX.
+    ENDIF.
+  ENDLOOP.
+
+  DATA(LV_MSG) = |Created: { LV_SUCCE }, Error: { LV_ERROR }|.
+  MESSAGE S000 WITH LV_MSG.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  HANDLE_DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM HANDLE_DOUBLE_CLICK USING P_SENDER TYPE REF TO CL_GUI_ALV_GRID
+                               P_ROW    TYPE LVC_S_ROW
+                               P_COLUMN TYPE LVC_S_COL
+                               P_ROW_NO TYPE LVC_S_ROID.
+
+  READ TABLE GT_ALV1 INDEX P_ROW-INDEX.
+
+  CASE P_COLUMN-FIELDNAME.
+    WHEN 'KOSTL'.
+
+      SET PARAMETER ID 'CAC' FIELD P_KOKRS.
+      SET PARAMETER ID 'KOS' FIELD GT_ALV1-KOSTL.
+      CALL TRANSACTION 'KS03' AND SKIP FIRST SCREEN.
+
+    WHEN 'STAT_DATA'.
+
+      READ TABLE GT_ALV1 INDEX P_ROW-INDEX.
+      IF GT_ALV1-MSG_DATA IS INITIAL.
+        MESSAGE S100.
+        EXIT.
+      ELSE.
+        ZCL_CO_COMM=>SHOW_STRING_MESSAGE( CONV STRING( GT_ALV1-MSG_DATA ) ).
+      ENDIF.
+
+    WHEN 'STAT_EXEC'.
+
+      READ TABLE GT_ALV1 INDEX P_ROW-INDEX.
+      IF GT_ALV1-MSG_EXEC IS INITIAL.
+        MESSAGE S100.
+        EXIT.
+      ELSE.
+        ZCL_CO_COMM=>SHOW_STRING_MESSAGE( CONV STRING( GT_ALV1-MSG_EXEC ) ).
+      ENDIF.
+  ENDCASE.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  SHOW_MESSAGE
+*&---------------------------------------------------------------------*
+FORM SHOW_MESSAGE USING P_STAT P_MSG.
+
+  DATA: BEGIN OF LT_MSG OCCURS 0,
+          MSG LIKE GT_ALV1-MSG_EXEC,
+        END OF LT_MSG.
+  DATA: LV_MSGTY TYPE SY-MSGTY.
+
+  CLEAR: LT_MSG, LT_MSG[].
+
+  CALL FUNCTION 'BUS_MESSAGE_INIT'.
+
+  CALL FUNCTION 'BUS_MESSAGE_STATUS_SET'
+    EXPORTING
+      MSG_COLL_STATUS = '2'.
+  SPLIT P_MSG AT ZCOC_SEPERATOR INTO TABLE LT_MSG.
+  IF P_STAT = ICON_LED_GREEN.
+    LV_MSGTY = 'S'.
+  ELSE.
+    LV_MSGTY = 'E'.
+  ENDIF.
+
+  LOOP AT LT_MSG WHERE MSG NE SPACE.
+    CALL FUNCTION 'BUS_MESSAGE_STORE'
+      EXPORTING
+        ARBGB = 'OK'
+        MSGTY = LV_MSGTY
+        TXTNR = 000
+        MSGV1 = LT_MSG-MSG(50)
+        MSGVZ = LT_MSG-MSG+50(50)
+        MSGV3 = LT_MSG-MSG+100(50)
+        MSGV4 = LT_MSG-MSG+150(50).
+
+  ENDLOOP.
+
+  CALL FUNCTION 'BUS_MESSAGE_SHOW'.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  CHECK_KOSAR
+*&---------------------------------------------------------------------*
+FORM CHECK_KOSAR USING PS_ALV LIKE GT_ALV1.
+
+  DATA: LS_TKA05 LIKE TKA05,
+        LV_MSG   TYPE STRING.
+
+  SELECT SINGLE *
+    FROM TKA05
+    INTO LS_TKA05
+   WHERE KOSAR = PS_ALV-KOSAR.
+
+  IF SY-SUBRC <> 0.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-401 INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM CHECK_GSBER USING PS_ALV LIKE GT_ALV1.
+
+  SELECT SINGLE COUNT(*)
+    FROM TGSB
+    INTO @DATA(LV_LINES)
+   WHERE GSBER = @PS_ALV-GSBER.
+
+  IF LV_LINES = 0.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-402 INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM CHECK_FUNC_AREA USING PS_ALV LIKE GT_ALV1.
+
+  SELECT SINGLE COUNT(*)
+    FROM TFKB
+    INTO @DATA(LV_LINES)
+   WHERE FKBER = @PS_ALV-FUNC_AREA.
+
+  IF LV_LINES = 0.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-403 INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM CHECK_WAERS USING PS_ALV LIKE GT_ALV1.
+
+  SELECT SINGLE COUNT(*)
+    FROM TCURC
+    INTO @DATA(LV_LINES)
+   WHERE WAERS = @PS_ALV-WAERS.
+
+  IF LV_LINES = 0.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-404 INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  DOUBLE_CLICK
+*&---------------------------------------------------------------------*
+FORM CHECK_PRCTR USING PS_ALV LIKE GT_ALV1.
+
+  SELECT SINGLE COUNT(*)
+    FROM CEPC
+    INTO @DATA(LV_LINES)
+   WHERE PRCTR = @PS_ALV-PRCTR
+     AND KOKRS = @P_KOKRS.
+
+  IF LV_LINES = 0.
+    PS_ALV-STAT_DATA = ICON_LED_RED.
+    CONCATENATE PS_ALV-MSG_DATA ZCOC_SEPERATOR TEXT-405 INTO PS_ALV-MSG_DATA.
+  ENDIF.
+
+ENDFORM.
+
+----------------------------------------------------------------------

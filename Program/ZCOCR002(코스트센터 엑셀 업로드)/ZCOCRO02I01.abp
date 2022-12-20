@@ -1,0 +1,39 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZCOCRO02I01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+
+  GR_ZALV->MV_UCOMM = GR_ZALV->MV_OKCODE.
+  CLEAR GR_ZALV->MV_OKCODE.
+
+  CASE GR_ZALV->MV_UCOMM.
+    WHEN 'BACK' OR 'EXIT' OR 'CANC' .
+      LEAVE TO SCREEN 0.
+    WHEN 'SAVE' .
+      PERFORM EXEC_SAVE.
+    WHEN 'LEDG'.
+      PERFORM UCOMM_LEDG.
+    WHEN '&TOT' . "Show All
+      PERFORM FILTER_ALV_DATA USING ZCOC_A.
+    WHEN '&GRE'.  "Filter Green light
+      PERFORM FILTER_ALV_DATA USING ZCOC_G.
+    WHEN '&RED' . "Filter Red light
+      PERFORM FILTER_ALV_DATA USING ZCOC_R.
+  ENDCASE.
+
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  EXIT  INPUT
+*&---------------------------------------------------------------------*
+MODULE EXIT INPUT.
+
+  LEAVE TO SCREEN 0.
+
+ENDMODULE.
+
+----------------------------------------------------------------------
