@@ -1,0 +1,330 @@
+CLASS ZCL_COC_AMDP DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    INTERFACE IF_AMDP_MARKER_HDB.
+
+    TYPES: BEGIN OF TY_DUMMY,
+             MANDT TYPE MANDT,
+             ZDATE TYPE SY-DATUM,
+             ZTIME TYPE SY-UZEIT,
+           END OF TY_DUMMY.
+    TYPES: TT_DUMMY TYPE TABLE OF TY_DUMMY.
+
+    "TABLE FUNCTION으로 CDS 뷰 생성 시
+    CLASS-METHODS GET_BDGACT_COST_CENTER FOR TABLE FUNCTION ZTF_BDGACT_KS.
+    CLASS-METHODS CAL_RENTAL_ARPU_PLAN   FOR TABLE FUNCTION ZTF_ARPU_PLAN.
+    CLASS-METHODS GET_CTRT01             FOR TABLE FUNCTION ZTF_CTRT_SEQ.
+
+    "소스내에서 직접 METHOD 호출 시
+    METHODS GET_DUMMY
+      IMPORTING VALUE(IN_MANDT) TYPE MANDT
+                VALUE(IN_BNAME) TYPE XUBNAME
+      EXPORTING VALUE(ET_DUMMY) TYPE TT_DUMMY.
+      
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_AMDP IMPLEMENTATION.
+
+
+
+
+
+
+  METHOD GET_CTRT01 BY DATABASE FUNCTION
+                    FOR HDB LANGUAGE SQLSCRIPT
+                    OPTIONS READ-ONLY
+                    USING ZSDMT203.
+                    
+    TAB_IFSEQ = SELECT MANDT        AS MANDT,
+                       PRDT_CD      AS MATNR,
+                       CTRT_NO      AS INVZU,
+                       MAX( IFSEQ ) AS IFSEQ
+                  FROM ZSDMT203
+                 WHERE MANDT = SESSION_CONTEXT( 'CLIENT' )
+                   AND RGST_DT <= :IV_BUDAT
+                 GROUP BY MANDT, PRDT_CD, CTRTNO ;
+
+    TAB_ORSEQ = SELECT X.MANDT                AS MANDT,
+                       X.MATNR                AS MATNR,
+                       X.INVZU                AS INVZU,
+                       X.IFSEQ                AS IFSEQ,
+                       MAX( Y.ORD_DTL_SEQ )   AS ORD_DTL_SEQ
+                  FROM :TAB_IFSEQ AS X
+                 INNER JOIN ZSDMT203 AS Y 
+                                     ON Y.MANDT   = X.MANDT
+                                    AND Y.CTRT_NO = X.INVZU
+                                    AND Y.PRDT_CD = X.MATNR
+                                    AND Y.IFSEQ   = X.IFSEQ
+                 GROUP BY X.MANDT, X.MATNR, X.INVZU, X.IFSEQ;
+
+    RETURN SELECT A.MANDT,
+                  A.MATNR,
+                  A.INVZU,
+                  A.IFSEQ,
+                  A.ORSEQ,
+                  B.DSCN_A_TOT_AMT AS AMT_F
+             FROM :TAB_ORSEQ AS A
+            INNER JOIN ZSDMT203 AS B
+                                ON B.MANDT         = A.MANDT
+                               AND B.CTRT_NO       = A.INVZU
+                               AND B.PRDT_CD       = A.MATNR
+                               AND B.IFSEQ         = A.IFSEQ
+                               AND B.ORD_DTL_SEQ   = A.ORSEQ;
+
+  ENDMETHOD.
+
+
+  
+
+
+
+  METHOD GET_BDGACT_COST_CENTER BY DATABASE FUNCTION
+                                FOR HDB LANGUAGE SQLSCRIPT
+                                OPTIONS READ-ONLY
+                                USING ZCOSPCOSS10.
+
+
+    DECLARE LV_CLNT "$ABAP.TYPE( MANDT )" := SESSION_CONTEXT('CLIENT');
+
+    RETURN
+    SELECT MANDT, CAST( '202101' AS CHAR( 6 ) ) AS SPMON, KOSTL, KSTAR, 'test' AS AVCTY,
+           WKG001 AS BDGAMT, WKG001 AS ACTAMT
+      FROM ZCOSPCOSS10
+     WHERE GJAHR = SUBSTRING( :IV_SPMON, 1, 4 )
+       AND KOSTL = :IV_KOSTL
+       AND KSTAR = :IV_KSTAR;
+
+
+
+  ENDMETHOD.
+
+
+
+
+
+
+  METHOD CAL_RENTAL_ARPU_PLAN BY DATABASE FUNCTION 
+                              FOR HDB LANGUAGE SQLSCRIPT
+                              OPTIONS READ-ONLY
+*                               USING ZCOCT031 ZCOCT033 ZCOCT034 MARA ZCO_V_BP004.
+                              USING ZCOCT031 ZCOCT033 MARA ZCO_V_BP004.
+
+    DECLARE LV_BASYR "$ABAP.TYPE( GJAHR )" := :I_GJAHR + 4;
+
+    RETURN
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    SELECT A.MANDT             AS MANDT,
+           A.LESTY             AS LESTY,
+           :LV_BASYR           AS BASYR,
+           D.MATKL             AS MATKL,
+           '1'                 AS ARPTY,
+           SUM( A.CON01 )      AS CON01,
+           SUM( A.CON02 )      AS CON02,
+           SUM( A.CON03 )      AS CON03,
+           SUM( A.CON04 )      AS CON04,
+           SUM( A.CON05 )      AS CON05,
+           SUM( A.CON06 )      AS CON06,
+           SUM( A.CON07 )      AS CON07,
+           SUM( A.CON08 )      AS CON08,
+           SUM( A.CON09 )      AS CON09,
+           SUM( A.CON10 )      AS CON10,
+           SUM( A.CON11 )      AS CON11,
+           SUM( A.CON12 )      AS CON12
+      FROM ZCOCT031 AS A
+     INNER JOIN ZCOCT033 AS B ON B.MANDT = A.MANDT
+                             AND B.KOKRS = A.KOKRS
+                             AND B.GJAHR = A.GJAHR
+                             AND B.VERSN = A.VERSN
+                             AND B.LESTY = A.LESTY
+                             AND B.CONTY = A.CONTY
+                             AND B.OBLPR = A.OBLPR
+                             AND B.EXPPR = A.EXPPR
+                             AND B.MATNR = A.MATNR
+     INNER JOIN MARA AS C ON C.MANDT = A.MANDT
+                         AND C.MATNR = A.MATNR
+     INNER JOIN ZCO_V_BP004 AS D ON D.MANDT   = C.MANDT
+                                AND D.MATKL_T = C.MATKL
+     WHERE A.KOKRS = :I_KOKRS
+       AND A.GJAHR = :I_GJAHR
+       AND A.VERSN = :I_VERSN
+       AND A.LESTY = '1'
+     GROUP BY A.MANDT, A.LESTY, D.MATKL
+     
+    UNION ALL
+    
+    SELECT A.MANDT             AS MANDT,
+           A.LESTY             AS LESTY,
+           :LV_BASYR           AS BASYR,
+           D.MATKL             AS MATKL,
+           '2'                 AS ARPTY,
+           SUM( A.CON01 * B.ZARPU * 100 )      AS CON01,
+           SUM( A.CON02 * B.ZARPU * 100 )      AS CON02,
+           SUM( A.CON03 * B.ZARPU * 100 )      AS CON03,
+           SUM( A.CON04 * B.ZARPU * 100 )      AS CON04,
+           SUM( A.CON05 * B.ZARPU * 100 )      AS CON05,
+           SUM( A.CON06 * B.ZARPU * 100 )      AS CON06,
+           SUM( A.CON07 * B.ZARPU * 100 )      AS CON07,
+           SUM( A.CON08 * B.ZARPU * 100 )      AS CON08,
+           SUM( A.CON09 * B.ZARPU * 100 )      AS CON09,
+           SUM( A.CON10 * B.ZARPU * 100 )      AS CON10,
+           SUM( A.CON11 * B.ZARPU * 100 )      AS CON11,
+           SUM( A.CON12 * B.ZARPU * 100 )      AS CON12
+      FROM ZCOCT031 AS A
+     INNER JOIN ZCOCT033 AS B ON B.MANDT = A.MANDT
+                             AND B.KOKRS = A.KOKRS
+                             AND B.GJAHR = A.GJAHR
+                             AND B.VERSN = A.VERSN
+                             AND B.LESTY = A.LESTY
+                             AND B.CONTY = A.CONTY
+                             AND B.OBLPR = A.OBLPR
+                             AND B.EXPPR = A.EXPPR
+                             AND B.MATNR = A.MATNR
+     INNER JOIN MARA AS C ON C.MANDT = A.MANDT
+                         AND C.MATNR = A.MATNR
+     INNER JOIN ZCO_V_BP004 AS D ON D.MANDT   = C.MANDT
+                                AND D.MATKL_T = C.MATKL
+     WHERE A.KOKRS = :I_KOKRS
+       AND A.GJAHR = :I_GJAHR
+       AND A.VERSN = :I_VERSN
+       AND A.LESTY = '1'
+     GROUP BY A.MANDT, A.LESTY, D.MATKL
+    
+     UNION ALL
+    
+     SELECT A.MANDT             AS MANDT,
+            A.LESTY             AS LESTY,
+            :LV_BASYR           AS BASYR,
+            D.MATKL             AS MATKL,
+            '3'                 AS ARPTY,
+            CASE SUM( A.CON01 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON01 * B.ZARPU * 100 ) / SUM( A.CON01 ) )  AS CON01,
+            CASE SUM( A.CON02 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON02 * B.ZARPU * 100 ) / SUM( A.CON02 ) )  AS CON02,
+            CASE SUM( A.CON03 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON03 * B.ZARPU * 100 ) / SUM( A.CON03 ) )  AS CON03,
+            CASE SUM( A.CON04 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON04 * B.ZARPU * 100 ) / SUM( A.CON04 ) )  AS CON04,
+            CASE SUM( A.CON05 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON05 * B.ZARPU * 100 ) / SUM( A.CON05 ) )  AS CON05,
+            CASE SUM( A.CON06 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON06 * B.ZARPU * 100 ) / SUM( A.CON06 ) )  AS CON06,
+            CASE SUM( A.CON07 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON07 * B.ZARPU * 100 ) / SUM( A.CON07 ) )  AS CON07,
+            CASE SUM( A.CON08 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON08 * B.ZARPU * 100 ) / SUM( A.CON08 ) )  AS CON08,
+            CASE SUM( A.CON09 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON09 * B.ZARPU * 100 ) / SUM( A.CON09 ) )  AS CON09,
+            CASE SUM( A.CON10 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON10 * B.ZARPU * 100 ) / SUM( A.CON10 ) )  AS CON10,
+            CASE SUM( A.CON11 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON11 * B.ZARPU * 100 ) / SUM( A.CON11 ) )  AS CON11,
+            CASE SUM( A.CON12 ) WHEN 0 THEN 0 ELSE ROUND( SUM( A.CON12 * B.ZARPU * 100 ) / SUM( A.CON12 ) )  AS CON12
+       FROM ZCOCT031 AS A
+      INNER JOIN ZCOCT033 AS B ON B.MANDT = A.MANDT
+                              AND B.KOKRS = A.KOKRS
+                              AND B.GJAHR = A.GJAHR
+                              AND B.VERSN = A.VERSN
+                              AND B.LESTY = A.LESTY
+                              AND B.CONTY = A.CONTY
+                              AND B.OBLPR = A.OBLPR
+                              AND B.EXPPR = A.EXPPR
+                              AND B.MATNR = A.MATNR
+      INNER JOIN MARA AS C ON C.MANDT = A.MANDT
+                          AND C.MATNR = A.MATNR
+      INNER JOIN ZCO_V_BP004 AS D ON D.MANDT   = C.MANDT
+                                 AND D.MATKL_T = C.MATKL
+      WHERE A.KOKRS = :I_KOKRS
+        AND A.GJAHR = :I_GJAHR
+        AND A.VERSN = :I_VERSN
+        AND A.LESTY = '1'
+      GROUP BY A.MANDT, A.LESTY, D.MATKL;
+
+                
+  ENDMETHOD.
+
+
+
+
+
+
+
+
+
+  METHOD GET_DUMMY BY DATABASE PROCEDURE
+                   FOR HDB LANGUAGE SQLSCRIPT
+                   OPTIONS READ-ONLY
+                   USING ZCOCT013.
+
+    IF :IN_BNAME = 'ABAP08' THEN
+      ET_DUMMY = SELECT MANDT AS MANDT, ERDAT AS ZDATE, ERZET AS ZTIME
+                   FROM ZCOCT013
+                  WHERE ERNAM = :IN_BNAME;
+    ELSE.
+      ET_DUMMY = SELECT MANDT AS MANDT, ERDAT AS ZDATE, ERZET AS ZTIME
+                   FROM ZCOCT013;
+    END IF;
+
+  ENDMETHOD.
+ENDCLASS.

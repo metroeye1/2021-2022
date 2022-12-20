@@ -1,0 +1,52 @@
+FUNCTION ZQET4_EVAL_FORMULA.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     REFERENCE(IV_FORMULA) TYPE  QEIFFORMEL
+*"     REFERENCE(IT_PARA_VALUE) TYPE  ZQMT_FORM_PARAM_VALUE
+*"  EXPORTING
+*"     REFERENCE(EV_RESULT) TYPE  F
+*"  EXCEPTIONS
+*"      CALCULATION_ERROR
+*"----------------------------------------------------------------------
+
+  CONSTANTS LC_FORMELROUTINE TYPE CHAR30 VALUE 'FORMELINPUT'.
+
+  DATA LV_REPID TYPE SY-REPID VALUE SY-REPID.
+
+  "SET GLOBAL MEMORY FOR CALL-BACK
+  MOVE IT_PARA_VALUE TO GT_FORM_PARA_VALUE.
+
+  "EXECUTE CALCULATOR
+  CALL FUNCTION 'EVAL_FORMULA'
+    EXPORTING
+      FORMULA                 = IV_FORMULA
+      PROGRAM                 = LV_REPID
+      ROUTINE                 = LC_FORMELROUTINE
+      NO_EXISTENCE_CHECK      = ABAP_TRUE
+    IMPORTING
+      VALUE                   = EV_RESULT
+    EXCEPTIONS
+      DIVISION_BY_ZERO        = 1
+      EXP_ERROR               = 2
+      FORMULA_TABLE_NOT_VALID = 3
+      INVALID_EXPRESSION      = 4
+      INVALID_VALUE           = 5
+      LOG_ERROR               = 6
+      PARAMETER_ERROR         = 7
+      SQRT_ERROR              = 8
+      UNITS_NOT_VALID         = 9
+      MISSING_PARAMETER       = 10
+      OTHERS                  = 11.
+
+
+ENDFUNCTION.
+
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: HR99S00_STATUS_HANDL
+*006   & & & &
+
+----------------------------------------------------------------------

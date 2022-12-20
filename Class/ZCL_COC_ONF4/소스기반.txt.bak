@@ -1,0 +1,695 @@
+class ZCL_SCO_ONF4 definition
+  public
+  create public .
+
+public section.
+
+  types:
+    BEGIN OF TY_COLOR,
+        NAME    TYPE CHAR11,
+        COL     TYPE LVC_COL,
+        INT     TYPE LVC_INT,
+        INV     TYPE LVC_INV,
+        TEXT    TYPE TEXT100,
+        SCOLTAB TYPE LVC_T_SCOL,
+      END OF TY_COLOR .
+  types:
+    BEGIN OF TY_VAL,
+        VALUE TYPE TEXT79_D,
+      END OF TY_VAL .
+  types:
+    TY_COLOR_T TYPE TABLE OF TY_COLOR .
+  types:
+    TY_HELP    TYPE TABLE OF HELP_VTAB .
+  types:
+    TY_HVALUE  TYPE TABLE OF HELP_VALUE .
+  types:
+    TY_VALUE   TYPE TABLE OF TY_VAL .
+
+  class-data MT_COLOR type TY_COLOR_T .
+  class-data MR_SALV type ref to CL_SALV_TABLE .
+
+  class-methods F4_BUKRS
+    importing
+      !I_KOKRS type KOKRS
+    returning
+      value(E_BUKRS) type BUKRS .
+  class-methods F4_COLOR
+    changing
+      value(CV_EMPHASIZE) type LVC_EMPHSZ optional
+    returning
+      value(RS_COLOR) type LVC_S_COLO .
+  class-methods F4_DATE
+    importing
+      value(IV_DATE) type ANY optional
+    exporting
+      value(EV_DATE) type ANY
+      value(EV_GJAHR) type GJAHR
+      value(EV_MONAT) type MONAT .
+  class-methods F4_DOMAIN_VALUE
+    importing
+      !I_DOMNAME type DOMNAME
+    returning
+      value(E_RETURN) type DOMVALUE_L .
+  class-methods F4_FOR_YYYYMM
+    returning
+      value(RV_SPMON) type SPMON .
+  class-methods F4_GROUP
+    importing
+      !I_CLASS type RGSBS-CLASS
+      !I_KOKRS type KOKRS optional
+      !I_KTOPL type KTOPL optional
+      !I_FIKRS type FIKRS optional
+    returning
+      value(E_SET_NAME) type RGSBM-SHORTNAME .
+  class-methods F4_IFILE
+    importing
+      !IV_FILENAME type STRING optional
+      value(IV_FILE_FILTER) type STRING optional
+      !IV_INITIAL_DIRECTORY type STRING optional
+    returning
+      value(RV_FULLPATH) type STRING .
+  class-methods F4_KONGR .
+  class-methods F4_KSGRU
+    importing
+      !I_GUBUN type DYNPREAD-FIELDNAME optional
+      !I_REPID type D020S-PROG optional
+      !I_DYNNR type D020S-DNUM optional
+    changing
+      !E_KSTGR type FMII1-KSTGR .
+  class-methods F4_PRCTR .
+  class-methods F4_PRGRU
+    importing
+      !I_GUBUN type DYNPREAD-FIELDNAME optional
+      !I_REPID type D020S-PROG optional
+      !I_DYNNR type D020S-DNUM optional
+    changing
+      !E_PROGR type FMII1-PROGR .
+  class-methods F4_STAGR
+    importing
+      value(IV_KOKRS) type KOKRS optional
+    returning
+      value(EV_STAGR) type STAGR .
+  class-methods F4_UNAME .
+  class-methods F4_WERKS
+    importing
+      !I_BUKRS type BUKRS
+    exporting
+      !E_BUKRS type BUKRS
+    returning
+      value(E_WERKS) type WERKS_D .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+
+    DATA MS_COLOR TYPE LVC_S_COLO .
+
+    METHODS ON_SALV_DOUBLE_CLICK
+          FOR EVENT DOUBLE_CLICK OF CL_SALV_EVENTS_TABLE
+      IMPORTING
+          !ROW
+          !COLUMN.
+ENDCLASS.
+
+
+
+CLASS ZCL_SCO_ONF4 IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_BUKRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_KOKRS                        TYPE        KOKRS
+* | [<-()] E_BUKRS                        TYPE        BUKRS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_BUKRS.
+
+    DATA: LT_RETURN_TAB TYPE TABLE OF DDSHRETVAL,
+          LR_KOKRS      TYPE RANGE OF TKA01-KOKRS.
+
+    IF I_KOKRS IS NOT INITIAL.
+      LR_KOKRS[] = VALUE #( ( SIGN   = ZSCO0_I
+                              OPTION = ZSCO0_EQ
+                              LOW    = I_KOKRS ) ).
+    ENDIF.
+
+    SELECT B~BUKRS,  B~BUTXT
+      FROM TKA02 AS A JOIN T001 AS B
+                 ON A~BUKRS = B~BUKRS
+     WHERE A~KOKRS IN @LR_KOKRS
+    ORDER BY B~BUKRS
+     INTO TABLE @DATA(LT_DATA).
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        RETFIELD        = 'BUKRS'
+        DYNPPROG        = SY-REPID
+        DYNPNR          = SY-DYNNR
+        VALUE_ORG       = 'S'
+      TABLES
+        VALUE_TAB       = LT_DATA
+        RETURN_TAB      = LT_RETURN_TAB
+      EXCEPTIONS
+        PARAMETER_ERROR = 1
+        NO_VALUES_FOUND = 2
+        OTHERS          = 3.
+
+    CHECK LT_RETURN_TAB IS NOT INITIAL.
+
+    DATA(LS_RETURN) = VALUE #( LT_RETURN_TAB[ 1 ] ).
+    E_BUKRS = LS_RETURN-FIELDVAL.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_COLOR
+* +-------------------------------------------------------------------------------------------------+
+* | [<-->] CV_EMPHASIZE                   TYPE        LVC_EMPHSZ(optional)
+* | [<-()] RS_COLOR                       TYPE        LVC_S_COLO
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_COLOR.
+
+    DATA: GR_EVENTS TYPE REF TO ZCL_SCO_ONF4.
+
+    DATA: LT_LVC_T_SCOL TYPE LVC_T_SCOL.
+
+    MT_COLOR = VALUE #( ( NAME = 'ALV_BACK    ' COL = 0 INT = 0 INV = 0 TEXT = 'Light Grey' )
+                        ( NAME = 'ALV_BACKINT ' COL = 0 INT = 1 INV = 0 TEXT = 'Light Grey with Blue Text' )
+                        ( NAME = 'ALV_HEAD    ' COL = 1 INT = 0 INV = 0 TEXT = 'Light Blue' )
+                        ( NAME = 'ALV_HEADINT ' COL = 1 INT = 1 INV = 0 TEXT = 'Blue' )
+                        ( NAME = 'ALV_NORM    ' COL = 2 INT = 0 INV = 0 TEXT = 'Light Purple' )
+                        ( NAME = 'ALV_NORMINT ' COL = 2 INT = 1 INV = 0 TEXT = 'Very Light Blue' )
+                        ( NAME = 'ALV_TOTA    ' COL = 3 INT = 0 INV = 0 TEXT = 'Light Yellow' )
+                        ( NAME = 'ALV_TOTAINT ' COL = 3 INT = 1 INV = 0 TEXT = 'Yellow' )
+                        ( NAME = 'ALV_KEY     ' COL = 4 INT = 0 INV = 0 TEXT = 'Light Blue Grey' )
+                        ( NAME = 'ALV_KEYINT  ' COL = 4 INT = 1 INV = 0 TEXT = 'Blue Grey' )
+                        ( NAME = 'ALV_POS     ' COL = 5 INT = 0 INV = 0 TEXT = 'Light Green' )
+                        ( NAME = 'ALV_POSINT  ' COL = 5 INT = 1 INV = 0 TEXT = 'Green' )
+                        ( NAME = 'ALV_NEG     ' COL = 6 INT = 0 INV = 0 TEXT = 'Light Red' )
+                        ( NAME = 'ALV_NEGINT  ' COL = 6 INT = 1 INV = 0 TEXT = 'Red' )
+                        ( NAME = 'ALV_GRP     ' COL = 7 INT = 0 INV = 0 TEXT = 'Light Orange' )
+                        ( NAME = 'ALV_GRPINT  ' COL = 7 INT = 1 INV = 0 TEXT = 'Orange' ) ).
+
+    DATA(LO_ALV) = NEW ZCL_SCO_ALV( ).
+    DATA(LT_FDCAT) = LO_ALV->MAKE_FIELDCATALOG( IV_MODE = ZSCO0_R IT_TABLE = MT_COLOR ).
+
+    LOOP AT MT_COLOR ASSIGNING FIELD-SYMBOL(<FS_COLOR>).
+      LOOP AT LT_FDCAT INTO DATA(LS_FDCAT).
+        <FS_COLOR>-SCOLTAB = VALUE #( BASE <FS_COLOR>-SCOLTAB
+                                           ( FNAME = LS_FDCAT-FIELDNAME
+                                             COLOR = VALUE #( COL = <FS_COLOR>-COL
+                                                              INT = <FS_COLOR>-INT
+                                                              INV = <FS_COLOR>-INV ) ) ).
+      ENDLOOP.
+    ENDLOOP.
+
+    TRY.
+        CL_SALV_TABLE=>FACTORY( IMPORTING R_SALV_TABLE = MR_SALV
+                                CHANGING  T_TABLE      = MT_COLOR[] ).
+      CATCH CX_SALV_MSG.
+    ENDTRY.
+
+    DATA(LR_FUNCTIONS) = MR_SALV->GET_FUNCTIONS( ).
+    DATA(LR_COLUMNS)   = MR_SALV->GET_COLUMNS( ).
+    DATA(LR_DISP_SET)  = MR_SALV->GET_DISPLAY_SETTINGS( ).
+
+*-- Set optimize
+    LR_COLUMNS->SET_OPTIMIZE( ABAP_TRUE ).
+    LR_COLUMNS->SET_COLOR_COLUMN( 'SCOLTAB' ).
+
+*-- Set popup
+    MR_SALV->SET_SCREEN_POPUP( START_COLUMN = 5
+                               END_COLUMN   = 60
+                               START_LINE   = 5
+                               END_LINE     = 20 ).
+
+*-- Set title
+    LR_DISP_SET->SET_LIST_HEADER( |ALV control: Color| ).
+    LR_COLUMNS->GET_COLUMN( 'NAME' )->SET_SHORT_TEXT(  CONV #( TEXT-H01 ) ).
+    LR_COLUMNS->GET_COLUMN( 'NAME' )->SET_MEDIUM_TEXT( CONV #( TEXT-H01 ) ).
+    LR_COLUMNS->GET_COLUMN( 'NAME' )->SET_LONG_TEXT(   CONV #( TEXT-H01 ) ).
+
+    LR_COLUMNS->GET_COLUMN( 'COL' )->SET_SHORT_TEXT(  CONV #( TEXT-H02 ) ).
+    LR_COLUMNS->GET_COLUMN( 'COL' )->SET_MEDIUM_TEXT( CONV #( TEXT-H02 ) ).
+    LR_COLUMNS->GET_COLUMN( 'COL' )->SET_LONG_TEXT(   CONV #( TEXT-H02 ) ).
+
+    LR_COLUMNS->GET_COLUMN( 'INT' )->SET_SHORT_TEXT(  CONV #( TEXT-H03 ) ).
+    LR_COLUMNS->GET_COLUMN( 'INT' )->SET_MEDIUM_TEXT( CONV #( TEXT-H03 ) ).
+    LR_COLUMNS->GET_COLUMN( 'INT' )->SET_LONG_TEXT(   CONV #( TEXT-H03 ) ).
+
+    LR_COLUMNS->GET_COLUMN( 'INV' )->SET_SHORT_TEXT(  CONV #( TEXT-H04 ) ).
+    LR_COLUMNS->GET_COLUMN( 'INV' )->SET_MEDIUM_TEXT( CONV #( TEXT-H04 ) ).
+    LR_COLUMNS->GET_COLUMN( 'INV' )->SET_LONG_TEXT(   CONV #( TEXT-H04 ) ).
+
+    LR_COLUMNS->GET_COLUMN( 'TEXT' )->SET_SHORT_TEXT(  CONV #( TEXT-H05 ) ).
+    LR_COLUMNS->GET_COLUMN( 'TEXT' )->SET_MEDIUM_TEXT( CONV #( TEXT-H05 ) ).
+    LR_COLUMNS->GET_COLUMN( 'TEXT' )->SET_LONG_TEXT(   CONV #( TEXT-H05 ) ).
+
+*-- Evnets
+    DATA(LR_EVENTS) = MR_SALV->GET_EVENT( ).
+    CREATE OBJECT GR_EVENTS.
+    SET HANDLER GR_EVENTS->ON_SALV_DOUBLE_CLICK FOR LR_EVENTS.
+
+*-- Show SALV
+    MR_SALV->DISPLAY( ).
+
+*-- Return Selected Clolor Info.
+    RS_COLOR = GR_EVENTS->MS_COLOR.
+
+    IF RS_COLOR IS NOT INITIAL.
+      CV_EMPHASIZE = ZSCO0_C && RS_COLOR-COL && RS_COLOR-INT && RS_COLOR-INV.
+    ENDIF.
+
+    FREE: MR_SALV, GR_EVENTS.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_DATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATE                        TYPE        ANY(optional)
+* | [<---] EV_DATE                        TYPE        ANY
+* | [<---] EV_GJAHR                       TYPE        GJAHR
+* | [<---] EV_MONAT                       TYPE        MONAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_DATE.
+
+    DATA: LV_DATE TYPE DATUM,
+          LV_MONT TYPE ISELLIST-MONTH.
+
+    "Check output parameter type
+    DESCRIBE FIELD EV_DATE TYPE DATA(LV_TYPE).
+
+    IF LV_TYPE NE ZSCO0_N AND
+       LV_TYPE NE ZSCO0_D.
+
+      MESSAGE S000(0K) WITH 'Check output parameter' DISPLAY LIKE ZSCO0_E.
+      EXIT.
+    ENDIF.
+
+    IF IV_DATE IS INITIAL.
+      LV_MONT = SY-DATUM(6).
+    ELSE.
+      LV_MONT(4) = IV_DATE(4).
+      LV_MONT+4  = IV_DATE+4.
+    ENDIF.
+
+    "Popup calendar
+    CALL FUNCTION 'POPUP_TO_SELECT_MONTH'
+      EXPORTING
+        ACTUAL_MONTH               = LV_MONT
+        LANGUAGE                   = SY-LANGU
+      IMPORTING
+        SELECTED_MONTH             = LV_DATE(6)
+      EXCEPTIONS
+        FACTORY_CALENDAR_NOT_FOUND = 1
+        HOLIDAY_CALENDAR_NOT_FOUND = 2
+        MONTH_NOT_FOUND            = 3
+        OTHERS                     = 4.
+    IF SY-SUBRC = 0.
+
+      EV_GJAHR = LV_DATE(4).
+      EV_MONAT = LV_DATE+4(2).
+
+      DATA(LV_LEN) = STRLEN( EV_DATE ).
+      CASE LV_LEN.
+        WHEN 6 OR 7.
+          EV_DATE(4) = EV_GJAHR.
+          EV_DATE+4  = EV_MONAT.
+        WHEN 4.
+          EV_DATE = EV_GJAHR.
+        WHEN 2.
+          EV_DATE = EV_MONAT.
+      ENDCASE.
+
+    ENDIF.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_DOMAIN_VALUE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_DOMNAME                      TYPE        DOMNAME
+* | [<-()] E_RETURN                       TYPE        DOMVALUE_L
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_DOMAIN_VALUE.
+
+    DATA: LT_RETURN TYPE TABLE OF DDSHRETVAL.
+
+    SELECT DOMVALUE_L, DDTEXT
+      FROM DD07T
+     WHERE DOMNAME    EQ @I_DOMNAME
+       AND DDLANGUAGE EQ @SY-LANGU
+      INTO TABLE @DATA(LT_VALUE).
+
+    CHECK SY-SUBRC = 0.
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        RETFIELD        = 'DOMVALUE_L'
+        DYNPPROG        = SY-CPROG
+        DYNPNR          = SY-DYNNR
+        VALUE_ORG       = 'S'
+      TABLES
+        VALUE_TAB       = LT_VALUE
+        RETURN_TAB      = LT_RETURN
+      EXCEPTIONS
+        PARAMETER_ERROR = 1
+        NO_VALUES_FOUND = 2
+        OTHERS          = 3.
+
+    IF LT_RETURN IS NOT INITIAL.
+      E_RETURN = VALUE #( LT_RETURN[ 1 ]-FIELDVAL ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_FOR_YYYYMM
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_SPMON                       TYPE        SPMON
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_FOR_YYYYMM.
+
+    DATA LV_SPMON TYPE SPMON.
+    LV_SPMON = SY-DATLO(6).
+
+    CALL FUNCTION 'POPUP_TO_SELECT_MONTH'
+      EXPORTING
+        ACTUAL_MONTH   = LV_SPMON
+      IMPORTING
+        SELECTED_MONTH = RV_SPMON.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_GROUP
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_CLASS                        TYPE        RGSBS-CLASS
+* | [--->] I_KOKRS                        TYPE        KOKRS(optional)
+* | [--->] I_KTOPL                        TYPE        KTOPL(optional)
+* | [--->] I_FIKRS                        TYPE        FIKRS(optional)
+* | [<-()] E_SET_NAME                     TYPE        RGSBM-SHORTNAME
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_GROUP.
+
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_IFILE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_FILENAME                    TYPE        STRING(optional)
+* | [--->] IV_FILE_FILTER                 TYPE        STRING(optional)
+* | [--->] IV_INITIAL_DIRECTORY           TYPE        STRING(optional)
+* | [<-()] RV_FULLPATH                    TYPE        STRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_IFILE.
+
+    DATA: LT_FILE        TYPE FILETABLE,
+          LV_TITLE       TYPE STRING,
+          LV_LOC_FN      TYPE STRING,
+          LV_LOC_DIR     TYPE STRING,
+          LV_USER_ACTION TYPE I,
+          LV_SUBRC       TYPE SY-SUBRC.
+
+    DATA LV_MASK TYPE CHAR255.
+
+*-- Set field filter
+    IF IV_FILE_FILTER IS INITIAL.
+      DATA(LT_XML_CHOICE) = CL_SALV_EXPORT_XML_DIALOG=>GET_GUI_SPREADSHEET_FORMATS( ).
+      DATA(LS_XML_CHOICE) = LT_XML_CHOICE[ XML_TYPE = ZSCO0_10 ].
+
+      CALL METHOD CL_ALV_BDS=>CREATE_MASK_FOR_FILEFILTER
+        EXPORTING
+          I_FRONTEND          = LS_XML_CHOICE-FRONTEND
+        IMPORTING
+          E_DEFAULT_EXTENSION = DATA(LV_DEFAULT_EXTENSION)
+        CHANGING
+          C_MASK              = LV_MASK.
+
+      IV_FILE_FILTER = LV_MASK.
+    ENDIF.
+
+*-- Open file select dialog
+    CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_OPEN_DIALOG
+      EXPORTING
+        WINDOW_TITLE            = LV_TITLE
+        DEFAULT_EXTENSION       = LV_DEFAULT_EXTENSION
+        DEFAULT_FILENAME        = IV_FILENAME
+        FILE_FILTER             = IV_FILE_FILTER
+        INITIAL_DIRECTORY       = IV_INITIAL_DIRECTORY
+        MULTISELECTION          = SPACE
+      CHANGING
+        FILE_TABLE              = LT_FILE
+        RC                      = LV_SUBRC
+        USER_ACTION             = LV_USER_ACTION
+      EXCEPTIONS
+        FILE_OPEN_DIALOG_FAILED = 1
+        CNTL_ERROR              = 2
+        ERROR_NO_GUI            = 3
+        NOT_SUPPORTED_BY_GUI    = 4
+        OTHERS                  = 5.
+
+    IF SY-SUBRC IS NOT INITIAL.
+      EXIT.
+    ENDIF.
+
+    IF LV_USER_ACTION = CL_GUI_FRONTEND_SERVICES=>ACTION_CANCEL.
+      MESSAGE S161(ALVHT).
+      RETURN.
+    ENDIF.
+
+    RV_FULLPATH = LT_FILE[ 1 ].
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_KONGR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_KONGR.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_KSGRU
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_GUBUN                        TYPE        DYNPREAD-FIELDNAME(optional)
+* | [--->] I_REPID                        TYPE        D020S-PROG(optional)
+* | [--->] I_DYNNR                        TYPE        D020S-DNUM(optional)
+* | [<-->] E_KSTGR                        TYPE        FMII1-KSTGR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_KSGRU.
+
+    DATA: LV_OBJECT_GROUP TYPE RGSBM-SHORTNAME.
+
+    CALL FUNCTION 'K_GROUP_SELECT'
+      EXPORTING
+        CLASS         = ZSCO0_0101
+        FIELD_NAME    = ZSCO0_KOSTL
+        TABLE         = ZSCO0_CCSS
+      IMPORTING
+        SET_NAME      = LV_OBJECT_GROUP
+      EXCEPTIONS
+        NO_SET_PICKED = 1
+        OTHERS        = 2.
+
+    IF SY-SUBRC = 0.
+      E_KSTGR = LV_OBJECT_GROUP.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_PRCTR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_PRCTR.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_PRGRU
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_GUBUN                        TYPE        DYNPREAD-FIELDNAME(optional)
+* | [--->] I_REPID                        TYPE        D020S-PROG(optional)
+* | [--->] I_DYNNR                        TYPE        D020S-DNUM(optional)
+* | [<-->] E_PROGR                        TYPE        FMII1-PROGR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_PRGRU.
+
+    DATA: LV_OBJECT_GROUP TYPE RGSBM-SHORTNAME.
+
+    CALL FUNCTION 'K_GROUP_SELECT'
+      EXPORTING
+        CLASS         = ZSCO0_0106
+        FIELD_NAME    = ZSCO0_PRCTR
+      IMPORTING
+        SET_NAME      = LV_OBJECT_GROUP
+      EXCEPTIONS
+        NO_SET_PICKED = 1
+        OTHERS        = 2.
+
+    IF SY-SUBRC = 0.
+      E_PROGR = LV_OBJECT_GROUP.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_STAGR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_KOKRS                       TYPE        KOKRS(optional)
+* | [<-()] EV_STAGR                       TYPE        STAGR
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_STAGR.
+
+    DATA: LT_RETURN_TAB TYPE TABLE OF DDSHRETVAL.
+
+    SELECT A~STAGR,
+           B~BEZEI
+      FROM TKA03 AS A INNER JOIN TKT03 AS B
+                 ON A~KOKRS = B~KOKRS
+                AND A~STAGR = B~STAGR
+     WHERE A~KOKRS = @IV_KOKRS
+     ORDER BY A~STAGR
+      INTO TABLE @DATA(LT_DATA).
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        RETFIELD        = 'STAGR'
+        DYNPPROG        = SY-REPID
+        DYNPNR          = SY-DYNNR
+        VALUE_ORG       = ZSCO0_S
+      TABLES
+        VALUE_TAB       = LT_DATA[]
+        RETURN_TAB      = LT_RETURN_TAB
+      EXCEPTIONS
+        PARAMETER_ERROR = 1
+        NO_VALUES_FOUND = 2
+        OTHERS          = 3.
+
+    CHECK LT_RETURN_TAB[] IS NOT  INITIAL.
+    DATA(LS_RETURN) = VALUE #( LT_RETURN_TAB[ 1 ] ).
+    EV_STAGR = LS_RETURN-FIELDVAL.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_UNAME
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_UNAME.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_ONF4=>F4_WERKS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_BUKRS                        TYPE        BUKRS
+* | [<---] E_BUKRS                        TYPE        BUKRS
+* | [<-()] E_WERKS                        TYPE        WERKS_D
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD F4_WERKS.
+
+    DATA: LT_RETURN_TAB TYPE TABLE OF DDSHRETVAL,
+          LR_BUKRS      TYPE RANGE OF T001-BUKRS.
+
+    IF I_BUKRS IS NOT INITIAL.
+      LR_BUKRS[] = VALUE #( ( SIGN   = ZSCO0_I
+                              OPTION = ZSCO0_EQ
+                              LOW    = I_BUKRS ) ).
+    ENDIF.
+
+    SELECT T2~WERKS, T3~MC_NAME1, T3~NAME2, T3~MC_CITY1, T3~POST_CODE1, T3~SORT1, T3~SORT2, T1~BUKRS
+      FROM T001K AS T1 INNER JOIN T001W AS T2
+                 ON T1~BWKEY = T2~BWKEY
+                       LEFT JOIN ADRC AS T3
+                 ON T2~ADRNR      = T3~ADDRNUMBER
+                AND T3~DATE_FROM <= @SY-DATUM
+                AND T3~DATE_TO   >= @SY-DATUM
+    WHERE T1~BUKRS IN @LR_BUKRS
+    ORDER BY WERKS
+     INTO TABLE @DATA(LT_DATA).
+
+    CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+      EXPORTING
+        RETFIELD        = 'WERKS'
+        DYNPPROG        = SY-REPID
+        DYNPNR          = SY-DYNNR
+        VALUE_ORG       = 'S'
+      TABLES
+        VALUE_TAB       = LT_DATA
+        RETURN_TAB      = LT_RETURN_TAB
+      EXCEPTIONS
+        PARAMETER_ERROR = 1
+        NO_VALUES_FOUND = 2
+        OTHERS          = 3.
+
+*    IF SY-SUBRC = 0.
+*      IF E_BUKRS IS REQUESTED.
+*        E_BUKRS = I_BUKRS.
+*      ENDIF.
+*      RETURN.
+*    ENDIF.
+
+    CHECK LT_RETURN_TAB IS NOT INITIAL.
+
+*    READ TABLE lt_return_tab INTO DATA(ls_return) INDEX 1.
+    DATA(LS_RETURN) = VALUE #( LT_RETURN_TAB[ 1 ] ).
+    E_WERKS = LS_RETURN-FIELDVAL.
+
+    CHECK E_BUKRS IS REQUESTED.
+
+    SELECT SINGLE BUKRS
+      FROM T001W AS A INNER JOIN T001K AS B
+                 ON A~BWKEY = B~BWKEY
+     WHERE A~WERKS = @E_WERKS
+      INTO @E_BUKRS.
+
+    TRY.
+
+        DATA: I_VALUE TYPE DYNPREAD-FIELDVALUE.
+        I_VALUE = E_BUKRS.
+
+        CALL FUNCTION 'SET_DYNP_VALUE'
+          EXPORTING
+            I_FIELD = 'P_BUKRS'
+            I_REPID = SY-CPROG
+            I_DYNNR = SY-DYNNR
+            I_VALUE = I_VALUE.
+
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_SCO_ONF4->ON_SALV_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] ROW                            LIKE
+* | [--->] COLUMN                         LIKE
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD ON_SALV_DOUBLE_CLICK.
+
+    READ TABLE MT_COLOR INTO DATA(MS_WA) INDEX ROW.
+    IF SY-SUBRC = 0.
+      MOVE-CORRESPONDING MS_WA TO MS_COLOR.
+      MR_SALV->CLOSE_SCREEN( ).
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.

@@ -1,0 +1,549 @@
+FUNCTION-POOL YPJO.                         "MESSAGE-ID ..
+
+TYPE-POOLS: P99SG,
+            P99SF,
+            PFRU0,
+            OLE2.
+
+TYPES: T_IFT LIKE T599SFE.
+TYPES: T_TAB_IFT TYPE T_IFT OCCURS 0.
+
+
+TYPES: T_T5F99VD TYPE T5F99VD OCCURS 0.
+
+*** Function HR_99S_POPUP_TO_DECIDE_LIST :   ******************
+
+* controls :
+CONTROLS: TAB_CTR_LISTE0 TYPE TABLEVIEW USING SCREEN 100.
+CONTROLS: TAB_CTR_LISTE1 TYPE TABLEVIEW USING SCREEN 101.
+DATA: WA_CONTROLS_LINES TYPE I.
+
+DATA: TITLE_TC TYPE SPOP5-TITEL.
+
+* data for dialog modules :
+DATA:
+  OK_CODE(4)             TYPE C,
+  OK_CODE_SAVE(4)        TYPE C,
+  OPTION(1)              TYPE C,
+  FELDNAME(30)           TYPE C,
+  POPUPCOLS              TYPE I,                   " Spaltenzahl Dynpro
+  NUMBER_ANSWERS         LIKE SY-TABIX,            " Anzahl Antworten
+  TABULATOR              TYPE I,                   " Einr#cken der Antw.
+  ZEILE                  TYPE I,                   " ausgew. Zeile
+  F_CURSORLINE           LIKE SY-LILLI,            " Cursor auf Zeile ..
+  F_START_COL            LIKE SY-CUCOL,
+  F_START_ROW            LIKE SY-CUROW,
+  F_END_COL              LIKE SY-CUCOL,
+  F_END_ROW              LIKE SY-CUROW,
+  F_MARK_COUNT           TYPE I,                   " Anzahl Markierungen
+  F_MARK_FLAG            TYPE C,                   " Mark. erm#glichen
+  F_MARK_MAX             TYPE I,                   " max. Anzahl Mark.
+  MAXSTRLEN1             TYPE I,
+  MAXSTRLEN2             TYPE I,
+  GL_DISPLAY_ONLY        TYPE C,
+  WA_DISPLAYED_LINE(132) TYPE C,
+  WA_ANSWER(2)           TYPE C,
+  WA_CURRENT_LINE        LIKE SY-LILLI,
+  WA_SELFLAG             TYPE XFELD,
+  POSITION               TYPE CHAR10.
+
+
+DATA: TAB_POPLIST  TYPE P99SG_POPLI OCCURS 25.
+DATA: WA_LINE_POPLIST TYPE P99SG_POPLI.
+DATA: WA_LINE TYPE P99SG_POPLI.
+
+DATA: ABSMAXLEN  TYPE I VALUE 70,
+      ABSMINLEN  TYPE I VALUE 35,
+      DYNPOFFSET TYPE I VALUE 10,
+      TEXTLEN    TYPE I.
+
+DATA: BEGIN OF EXCL OCCURS 10,
+        FUNKTION(4),
+      END   OF EXCL.
+*******************************************************************
+CONSTANTS: C_HEX_TAB    TYPE X VALUE 9.
+CONSTANTS: C_COMMA VALUE ',',
+           C_POINT VALUE '.',
+           C_ESC   VALUE '"'.
+
+
+
+"ZQET4_EVAL_FORMULA ¿ë º¯¼ö
+DATA: GT_FORM_PARA_VALUE TYPE ZQMT_FORM_PARAM_VALUE.
+
+*----------------------------------------------------------------------*
+* INTERNAL TABLE
+*----------------------------------------------------------------------*
+DATA: BEGIN OF GT_EXIT OCCURS 0,
+        SYSID            LIKE SY-SYSID,
+        EXIT_TYP(20),
+        DEVCLASS         LIKE TADIR-DEVCLASS,
+        EXITNAME         TYPE STRING,
+        EXITTEXT         TYPE STRING,
+        ENHANCEMENT      LIKE MODSAP-NAME,
+        ENHANCEMENT_TEXT TYPE STRING,
+        TYP              TYPE MODSAP-TYP,
+        TYP_TEXT         TYPE STRING,
+        MEMBER           LIKE MODSAP-MEMBER,
+
+        "FOR SCREEN
+        G_NAME           LIKE MOD0-GDYNPROG,
+        G_DYNNR          LIKE MOD0-GDYNNR,
+        BERNAME          LIKE MOD0-BERNAME,
+        C_NAME           LIKE MOD0-CDYNPROG,
+        C_DYNNR          LIKE MOD0-CDYNNR,
+        CHK,
+      END  OF GT_EXIT.
+
+DATA: BEGIN OF GT_BADI OCCURS 0,
+        SYSID        LIKE SY-SYSID,
+        TYP(1),
+        EXIT_TYP(20),
+        DEVCLASS     LIKE TADIR-DEVCLASS,
+        EXITNAME     TYPE STRING,
+        EXITTEXT     TYPE STRING,
+        ERDAT        LIKE TADIR-CREATED_ON,
+        CHK,
+      END OF GT_BADI.
+
+DATA: BEGIN OF GT_MODI OCCURS 0,
+        SYSID     LIKE SY-SYSID,
+        OBJ_TYPE  LIKE SMODILOG-OBJ_TYPE,
+        OBJ_NAME  LIKE SMODILOG-OBJ_NAME,
+        SUB_TYPE  LIKE SMODILOG-SUB_TYPE,
+        SUB_NAME  LIKE SMODILOG-SUB_NAME,
+        INT_TYPE  LIKE SMODILOG-INT_TYPE,
+        INT_NAME  LIKE SMODILOG-INT_NAME,
+        OPERATION LIKE SMODILOG-OPERATION,
+        MAIN_PROG LIKE SMODILOG-MAIN_PROG,
+        MOD_DATE  LIKE SMODILOG-MOD_DATE,
+        DEVCLASS  LIKE TADIR-DEVCLASS,
+        TRKORR    LIKE SMODILOG-TRKORR,
+        CHK,
+      END OF GT_MODI.
+
+DATA: BEGIN OF GT_APPEND OCCURS 0,
+        SYSID    LIKE SY-SYSID,
+        DEVCLASS LIKE TADIR-DEVCLASS,
+        TABNAME  LIKE DD02V-TABNAME,
+        DDTEXT   LIKE DD02V-DDTEXT,
+        SQLTAB   LIKE DD02V-SQLTAB,
+        CHK,
+      END OF GT_APPEND.
+
+*TYPES: BEGIN OF S_FUNCTION,
+*         FNAME   LIKE MOD0-FUNCNAME,
+*         FTEXT   LIKE TFTIT-STEXT,
+*         IMPL,
+*         ACTIVE,
+*         EXAMPLE,
+*       END OF S_FUNCTION.
+*
+*TYPES: BEGIN OF S_CUA,
+*         P_NAME LIKE MOD0-CUAPROG,
+*         FCODE  TYPE GUI_CODE,
+*         IMPL,
+*         ACTIVE,
+*       END OF S_CUA.
+*
+*TYPES: BEGIN OF S_SCREEN,
+*         G_NAME  LIKE MOD0-GDYNPROG,
+*         G_DYNNR LIKE MOD0-GDYNNR,
+*         BERNAME LIKE MOD0-BERNAME,
+*         C_NAME  LIKE MOD0-CDYNPROG,
+*         C_DYNNR LIKE MOD0-CDYNNR,
+*         TEXT    LIKE MOD0-STEXT,
+*         IMPL,
+*         ACTIVE,
+*       END OF S_SCREEN.
+*
+*TYPES: BEGIN OF S_TABLE,
+*         TNAME  TYPE ITABNAME,
+*         IMPL,
+*         ACTIVE,
+*       END OF S_TABLE.
+*
+*TYPES: BEGIN OF EXIT_MEMBERS,
+*         NAME      TYPE MODNAME,
+*         TEXT      LIKE MOD0-MEMTEXT,
+*         FUNCTIONS TYPE S_FUNCTION OCCURS 0,
+*         FCODES    TYPE S_CUA OCCURS 0,
+*         SCREENS   TYPE S_SCREEN OCCURS 0,
+*         TABLES    TYPE S_TABLE OCCURS 0,
+*         STATUS    LIKE MOD0-STATUS,
+*       END   OF EXIT_MEMBERS.
+*
+*TYPES: BEGIN OF PROJECT_MEMBERS,
+*         NAME   TYPE MODNAME,
+*         EXITS  TYPE EXIT_MEMBERS OCCURS 0,
+*         TEXT   LIKE MOD0-MEMTEXT,
+*         STATUS LIKE MODATTR-STATUS,
+*       END   OF PROJECT_MEMBERS.
+
+************************************************************************
+* USER-EXIT.
+************************************************************************
+TYPE-POOLS: SWBM, SEEX.
+TYPES: RCODE(5).
+
+*       Strukturen
+TABLES: MOD0.                "Dynprofelder
+*       SAP-Erweiterungen
+TABLES: MODSAPA,             "Attribute
+        MODSAP ,             "Member
+        MODSAPT.             "Kurztexte
+*       Kunden-Erweiterungsprojekte
+TABLES: MODATTR,             "Attribute
+        MODACT,              "Member
+        MODTEXT.             "Kurztexte
+
+TABLES: TFDIR,               "Funktionsbausteine
+        TFTIT,               "Titel Funktionsbausteine
+        TLIBG,               "Verantwortliche Funktionsgruppen
+
+        D020S,               "Dynpros
+
+        TSDIR,               "Dynprobereiche
+        TSDIRT,              "Texte Dynprobereiche
+        TADIR,
+
+        TRDIR,               "Programme
+        TSTC,                "Transaktionen (wg. Bereichsmenues)
+
+        T002T.               "Langtexte zu Sprachenschl#ssel
+
+*---- Sprachen
+DATA: MOD_LANGUAGE LIKE SY-LANGU,
+      ORG_LANGUAGE LIKE SY-LANGU,
+      TRANSPORTKEY LIKE TRKEY.
+
+*---- Aktive Exits eines Programms
+DATA: BEGIN OF EXIT_NUMBERS OCCURS 50,
+        PROGRAM   LIKE TRDIR-NAME,
+        NUMBER(3),
+        ACTIVE,
+      END OF EXIT_NUMBERS.
+*---- Verbindung IMG --------------------------------------------------*
+
+RANGES: IMG_SAP_MODS FOR MODSAP-NAME.
+DATA: CALLED_BY_IMG.
+
+*---- Korrekturwesen --------------------------------------------------*
+
+TABLES: E071.
+
+DATA: KORRNR        LIKE E070-TRKORR.
+DATA: CORR_INSERTED LIKE MOD0-NAME.
+DATA: BEGIN OF CUA_CORR_INSERTED,
+        PROGRAM LIKE CUATEXTS-PROG,
+        CODE    LIKE CUATEXTS-CODE,
+      END OF CUA_CORR_INSERTED.
+
+*---- Memberliste Kundenmodifikation ----------------------------------*
+TYPES: BEGIN OF S_FUNCTION,
+         FNAME   LIKE MOD0-FUNCNAME,
+         FTEXT   LIKE TFTIT-STEXT,
+         IMPL,
+         ACTIVE,
+         EXAMPLE,
+       END OF S_FUNCTION.
+TYPES: BEGIN OF S_CUA,
+         P_NAME LIKE MOD0-CUAPROG,
+         FCODE  TYPE GUI_CODE,
+         IMPL,
+         ACTIVE,
+       END OF S_CUA.
+TYPES: BEGIN OF S_SCREEN,
+         G_NAME  LIKE MOD0-GDYNPROG,
+         G_DYNNR LIKE MOD0-GDYNNR,
+         BERNAME LIKE MOD0-BERNAME,
+         C_NAME  LIKE MOD0-CDYNPROG,
+         C_DYNNR LIKE MOD0-CDYNNR,
+         TEXT    LIKE MOD0-STEXT,
+         IMPL,
+         ACTIVE,
+       END OF S_SCREEN.
+TYPES: BEGIN OF S_TABLE,
+         TNAME  TYPE ITABNAME,
+         IMPL,
+         ACTIVE,
+       END OF S_TABLE.
+
+TYPES: BEGIN OF EXIT_MEMBERS,
+         NAME      TYPE MODNAME,
+         TEXT      LIKE MOD0-MEMTEXT,
+         FUNCTIONS TYPE S_FUNCTION OCCURS 0,
+         FCODES    TYPE S_CUA      OCCURS 0,
+         SCREENS   TYPE S_SCREEN   OCCURS 0,
+         TABLES    TYPE S_TABLE    OCCURS 0,
+         STATUS    LIKE MODATTR-STATUS,
+       END OF EXIT_MEMBERS.
+TYPES: BEGIN OF PROJECT_MEMBERS,
+         NAME   TYPE MODNAME,
+         EXITS  TYPE EXIT_MEMBERS OCCURS 0,
+         TEXT   LIKE MOD0-MEMTEXT,
+         STATUS LIKE MODATTR-STATUS,
+       END OF PROJECT_MEMBERS.
+
+DATA: EXIT_MEMBERS    TYPE EXIT_MEMBERS,
+      PROJECT_MEMBERS TYPE PROJECT_MEMBERS,
+      IMPL_OBJECTS    LIKE MODO OCCURS 0 WITH HEADER LINE.
+
+DATA: LISTTYPE(10),
+      BEGIN OF HD_STATUS,
+        EXIT_NAME TYPE MODNAME,
+        MEMTYPE,
+        FUNC      TYPE S_FUNCTION,
+        FCODE     TYPE S_CUA,
+        SCRN      TYPE S_SCREEN,
+        TABLE     TYPE S_TABLE,
+      END OF HD_STATUS.
+DATA: TOP_LEN   TYPE I,
+      TOP_FIRST.
+************************************************************************
+DATA: BEGIN OF MOD_MEMBERS OCCURS 20.
+    INCLUDE STRUCTURE MODACT.
+DATA: MEMTEXT LIKE MOD0-MEMTEXT,
+      END OF MOD_MEMBERS.
+
+DATA: BEGIN OF MOD_MEMBERS_KEY,
+        NAME   LIKE MOD_MEMBERS-NAME,
+        TYP    LIKE MOD_MEMBERS-TYP,
+        MEMBER LIKE MOD_MEMBERS-MEMBER,
+      END OF MOD_MEMBERS_KEY.
+
+*---- Memberlisten SAP-Modifikation (Pro Typ) -------------------------*
+
+*     Funktionsexits
+DATA: BEGIN OF FUNCTION_EXITS OCCURS 10,
+        FUNCNAME LIKE MOD0-FUNCNAME,
+        STEXT    LIKE TFTIT-STEXT,
+      END OF FUNCTION_EXITS.
+*     Key zum Lesen FUNCTION_EXITS/Eintragen in MODSAP
+DATA: BEGIN OF FMEMBER,
+        FUNCNAME LIKE MOD0-FUNCNAME,
+      END OF FMEMBER.
+
+*     CUA-Codes
+DATA: BEGIN OF CUA_CODES OCCURS 10,
+        CUAPROG LIKE MOD0-CUAPROG,
+        CUAFUN  LIKE MOD0-CUAFUN,
+        STEXT   LIKE RSEU0_MOD-L_TEXT,
+      END OF CUA_CODES.
+*     Key zum Lesen CUA_CODES/Eintragen in MODSAP
+DATA: BEGIN OF CMEMBER,
+        CUAPROG LIKE MOD0-CUAPROG,
+        CUAFUN  LIKE MOD0-CUAFUN,
+      END OF CMEMBER.
+
+*     Subscreens
+DATA: BEGIN OF SUBSCREENS OCCURS 10,
+        GDYNPROG  LIKE MOD0-GDYNPROG,
+        GDYNNR(4) TYPE N,
+        BERNAME   LIKE MOD0-BERNAME,
+        CDYNPROG  LIKE MOD0-CDYNPROG,
+        CDYNNR(4) TYPE N,
+        STEXT     LIKE MOD0-STEXT,
+      END OF SUBSCREENS.
+*     Key zum Lesen SUBSCREENS
+DATA: BEGIN OF SRMEMBER,
+        GDYNPROG  LIKE MOD0-GDYNPROG,
+        GDYNNR(4) TYPE N,
+        BERNAME   LIKE MOD0-BERNAME,
+        CDYNPROG  LIKE MOD0-CDYNPROG,
+        CDYNNR(4) TYPE N,
+      END OF SRMEMBER.
+*     Key zum Eintragen in MODSAP
+DATA: BEGIN OF SMEMBER,
+        GDYNPROG    LIKE MOD0-GDYNPROG,
+        GDYNNR(4)   TYPE N,
+        UNDERSCORE1 VALUE '_',
+        BERNAME     LIKE MOD0-BERNAME,
+        UNDERSCORE2 VALUE '_',
+        CDYNPROG    LIKE MOD0-CDYNPROG,
+        CDYNNR(4)   TYPE N,
+      END OF SMEMBER.
+
+*     Include-Tabellen
+DATA: BEGIN OF INCL_TABLES OCCURS 10,
+        INCLTAB LIKE MOD0-INCLTAB,
+      END OF INCL_TABLES.
+*     Key zum Lesen INCL_TABLES
+DATA: BEGIN OF TRMEMBER,
+        INCLTAB LIKE MOD0-INCLTAB,
+      END OF TRMEMBER.
+*     Key zum Eintragen in MODSAP
+DATA: BEGIN OF TMEMBER,
+        INCLTAB LIKE MOD0-INCLTAB,
+      END OF TMEMBER.
+
+*---- Pr#ffunktion ----------------------------------------------------*
+
+*     Fehlerhafte Komponenten
+DATA: BEGIN OF MESSTAB OCCURS 10,
+        SUBRC      LIKE SY-SUBRC,
+        TYP        LIKE MODSAP-TYP,
+        MEMBER     LIKE MODSAP-MEMBER,
+        MODNAME    LIKE MODSAP-NAME,
+        NOT_CALLED,
+      END OF MESSTAB.
+
+*     nicht vorhandene Programme mit CALL CUSTOMER-FUNCTION
+DATA: BEGIN OF SPROGRAMTAB OCCURS 5,
+        PROGNAME LIKE SY-REPID,
+        MEMBER   LIKE MODSAP-MEMBER,
+      END OF SPROGRAMTAB.
+*     nicht vorhandene Programme zu CUA-Codes
+DATA: BEGIN OF SCUAPROGRAMTAB OCCURS 5,
+        PROGNAME LIKE SY-REPID,
+        MEMBER   LIKE MODSAP-MEMBER,
+      END OF SCUAPROGRAMTAB.
+*     nicht vorhandene Dynpros mit CUSTOMER-SUBSCREEN
+DATA: BEGIN OF SDYNPROTAB OCCURS 5,
+        PROGNAME LIKE SY-REPID,
+        DYNNR    LIKE TSDIR-DYNNR,
+        MEMBER   LIKE MODSAP-MEMBER,
+      END OF SDYNPROTAB.
+
+*---- CUA-Definitionen -----------------------------------------------**
+
+TABLES: CUATEXTS.            "Aufheben ge#nderte CUA-Texte
+
+DATA: BEGIN OF CUA_MODS OCCURS 10.
+    INCLUDE STRUCTURE RSEU0_MOD.
+DATA: END OF CUA_MODS.
+
+DATA: SL_TEXT  LIKE RSEU0_MOD-L_TEXT,
+      SL_SPRSL LIKE SY-LANGU,
+      SPROGRAM LIKE SY-REPID,
+      SCODE    LIKE RSEU0_MOD-CODE.
+
+DATA: GCALLED_BY_SMOD.       " = 'X' <--> aus Testumg. SMOD gerufen
+
+*---------------------------------------------------------------------**
+
+DATA: STANDARD(3).           " = 'SAP' --> SAP-Standardmodifikation
+" = 'KUN' --> Kundenmodifikation
+DATA: DISPL.
+
+*     Hilfsfelder
+DATA: MODTYP       LIKE MODACT-TYP.
+DATA: XMODNAME LIKE MOD0-NAME,
+      XMODTEXT LIKE MOD0-MODTEXT.
+DATA: MEMBER       LIKE MOD0-MEMBER.
+
+DATA: SUBRC   LIKE SY-SUBRC.
+DATA: CUROW   LIKE SY-CUROW.
+DATA: S_CUROW LIKE SY-CUROW,
+      S_CUCOL LIKE SY-CUCOL.
+
+DATA: CHANGED.          "in Dynpro 100/200 (Komponenten) etw.ge#ndert?
+
+*     Ankreuzfeld auf Eingabewerteliste
+
+DATA: STATUS_ATTR LIKE SY-PFKEY,       "Status im Attributebild
+      STATUS_MEMS LIKE SY-PFKEY.       "Status im Komponentenbild
+
+DATA: GMODE(4),              " = 'NEWM' --> neu anlegen
+                             " = 'CHAM' --> #ndern
+                             " = 'SHOM' --> anzeigen
+      XMODE LIKE GMODE.
+CONSTANTS: C_MODE_CREATE  LIKE GMODE VALUE 'NEWM',
+           C_MODE_MODIFY  LIKE GMODE VALUE 'CHAM',
+           C_MODE_DISPLAY LIKE GMODE VALUE 'SHOM'.
+DATA: CMODE(4).
+
+DATA: FCODE      LIKE RSMPE-FUNC,
+      XCODE      LIKE FCODE,
+      SCR_RETURN TYPE RCODE,
+      SCR_MODE   LIKE GMODE.
+
+*     PF3-Popup
+DATA: ANSWER.
+
+*     Bl#ttern
+DATA: STEPL      LIKE SY-STEPL,
+      LINENR     LIKE SY-TABIX,
+      LINENUMBER LIKE SY-TABIX,
+      READINDEX  LIKE SY-TABIX,
+      PAGEBEGIN  LIKE SY-TABIX VALUE 00,
+      EPAGEBEGIN LIKE SY-TABIX VALUE 00,
+      CPAGEBEGIN LIKE SY-TABIX VALUE 00,
+      SPAGEBEGIN LIKE SY-TABIX VALUE 00,
+      TPAGEBEGIN LIKE SY-TABIX VALUE 00.
+CONSTANTS:
+  ELINENUMBER LIKE SY-TABIX VALUE 03,  "Zeilenzahl SSTEP-loop
+  CLINENUMBER LIKE SY-TABIX VALUE 03,
+  SLINENUMBER LIKE SY-TABIX VALUE 03,
+  TLINENUMBER LIKE SY-TABIX VALUE 03,
+  M_BEGIN     LIKE SY-CUROW VALUE 03,
+  E_BEGIN     LIKE SY-CUROW VALUE 02,
+  E_END       LIKE SY-CUROW VALUE 05,
+  C_BEGIN     LIKE SY-CUROW VALUE 08,
+  C_END       LIKE SY-CUROW VALUE 11,
+  S_BEGIN     LIKE SY-CUROW VALUE 14,
+  S_END       LIKE SY-CUROW VALUE 17,
+  T_BEGIN     LIKE SY-CUROW VALUE 20,
+  T_END       LIKE SY-CUROW VALUE 23,
+  SAP_M_CUCOL LIKE SY-CUCOL VALUE 04,
+  KUN_M_CUCOL LIKE SY-CUCOL VALUE 02,
+  EMPTY_LINES LIKE SY-CUCOL VALUE 02.  "Zeilen f#r Eintrag am Ende
+CONSTANTS: C_TRUE  VALUE 'X',
+           C_FALSE VALUE SPACE.
+CONSTANTS: C_CORR_DELETE(10) VALUE 'DELETE',
+           C_CORR_INSERT(10) VALUE 'INSERT',
+           C_CORR_MODIFY(10) VALUE 'MODIFY'.
+CONSTANTS: C_RC_NOTFOUND TYPE RCODE VALUE 'NF',
+           C_RC_OKAY     TYPE RCODE VALUE 'OK',
+           C_RC_CANCEL   TYPE RCODE VALUE 'CANC',
+           C_RC_CREATE   TYPE RCODE VALUE 'CREA'.
+CONSTANTS: C_TYPE_FUNCTION VALUE 'E',
+           C_TYPE_FCODE    VALUE 'C',
+           C_TYPE_SCREEN   VALUE 'S',
+           C_TYPE_TABLE    VALUE 'T',
+           C_TYPE_EXIT     VALUE SPACE,
+           C_TYPE_IMPLOBJ  VALUE 'O'.
+CONSTANTS: C_IMPL_INCLUDE VALUE 'I',
+           C_IMPL_FTEXT   VALUE 'C',
+           C_IMPL_SCREEN  VALUE 'D',
+           C_IMPL_TABLE   VALUE 'S',
+           C_IMPL_TEXTS   VALUE 'T',
+           C_IMPL_GUI     VALUE 'G'.
+CONSTANTS: C_ACTIVE_FUNC  VALUE 'C',
+           C_ACTIVE_TAB   VALUE 'A',
+           C_ACTIVE_TRUE  VALUE 'A',
+           C_ACTIVE_FALSE VALUE SPACE,
+           C_ACTIVE_PART  VALUE 'P'.
+CONSTANTS: C_INCL_FUNCTION VALUE 'F',
+           C_INCL_CUSTOMER VALUE 'C',
+           C_INCL_EXAMPLE  VALUE 'E',
+           C_INCL_SAP_FORM VALUE 'S',
+           C_INCL_CLI_FORM VALUE 'X',
+           C_INCL_SAP_TOP  VALUE 'T',
+           C_INCL_CLI_TOP  VALUE 'Y'.
+CONSTANTS: C_STD_DEFINITION LIKE STANDARD VALUE 'SAP',
+           C_STD_IMPLMNT    LIKE STANDARD VALUE 'KUN'.
+
+CONSTANTS: C_LTYPE_EXMEM       LIKE LISTTYPE VALUE 'EX_MEM',
+           C_LTYPE_PRMEM       LIKE LISTTYPE VALUE 'PR_MEM',
+           C_LTYPE_TESTOBJECTS LIKE LISTTYPE VALUE 'TESTOB',
+           C_LTYPE_ERROR       LIKE LISTTYPE VALUE 'ERROR'.
+CONSTANTS: C_TLEN_FUNCTIONS TYPE I VALUE 106,
+           C_TLEN_FCODES    TYPE I VALUE 52,
+           C_TLEN_SCREENS   TYPE I VALUE 82,
+           C_TLEN_TABLES    TYPE I VALUE 68,
+           C_TLEN_HEAD      TYPE I VALUE 70,
+           C_TLEN_INVAR     TYPE I VALUE 32.
+CONSTANTS: C_COL_MEMTYPE VALUE '4', C_INT_MEMTYPE VALUE '0',
+           C_COL_MEMBER  VALUE '2', C_INT_MEMBER  VALUE '0',
+           C_COL_TEXT    VALUE '0', C_INT_TEXT    VALUE '0',
+           C_COL_HEAD    VALUE '1', C_INT_HEAD    VALUE '1'.
+CONSTANTS:
+  YES VALUE 'X',
+  NO  VALUE ' '.
+
+*     Aktiv-Flags f#r Funkitonsexits
+DATA: AKTIV_FLAG   LIKE TFDIR-MAND VALUE 'C  ',
+      INAKTIV_FLAG LIKE AKTIV_FLAG VALUE '   '.
+
+----------------------------------------------------------------------

@@ -1,0 +1,233 @@
+class ZCL_COC_CHK definition
+  public
+  final
+  create public .
+
+public section.
+
+  class-methods AUTH_BUKRS
+    importing
+      !IV_BUKRS type BUKRS
+    exporting
+      !EV_RETURN type BAPIRETURN1
+    returning
+      value(RV_SUBRC) type SUBRC .
+  class-methods CHECK_BUKRS
+    importing
+      !I_BUKRS type BUKRS
+    returning
+      value(R_BUTXT) type BUTXT .
+  class-methods CHECK_KOKRS
+    importing
+      !I_KOKRS type KOKRS
+    returning
+      value(R_BEZEI) type BEZEI .
+  class-methods CHECK_DATE
+    importing
+      !IV_DATE type ANY
+    returning
+      value(RV_SUBRC) type SUBRC .
+  class-methods CHECK_VERSN
+    importing
+      !IV_KOKRS type KOKRS
+      !IV_VERSN TYPE VERSN
+      !IV_CLASS TYPE ZECLASS DEFAULT 'A04'
+      !IV_ALL   TYPE C DEFAULT ' '
+    returning
+      value(RV_SUBRC) type SUBRC .
+  class-methods CHECK_ADMIN
+    importing
+      !IV_KOKRS type KOKRS
+      !IV_BNAME TYPE XUBNAME
+    returning
+      value(RV_ADMIN) type CHAR01 .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_CHK IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>AUTH_BUKRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [<---] EV_RETURN                      TYPE        BAPIRETURN1
+* | [<-()] RV_SUBRC                       TYPE        SUBRC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD AUTH_BUKRS.
+
+    AUTHORITY-CHECK OBJECT 'BUKRS'
+                 ID 'BUKRS' FIELD IV_BUKRS.
+
+    RV_SUBRC = SY-SUBRC.
+
+    IF SY-SUBRC <> 0.
+      EV_RETURN = VALUE #( TYPE       = 'E'
+                          ID         = 'F5'
+                          NUMBER     = '460'
+                          MESSAGE_V1 = IV_BUKRS ).
+      MESSAGE S460(F5) WITH IV_BUKRS INTO EV_RETURN-MESSAGE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>CHECK_BUKRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_BUKRS                        TYPE        BUKRS
+* | [<-()] R_BUTXT                        TYPE        BUTXT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_BUKRS.
+*-- Compnay code check
+    CHECK I_BUKRS IS NOT INITIAL.
+
+    SELECT SINGLE *
+      FROM T001 CLIENT SPECIFIED
+     WHERE MANDT = @SY-MANDT
+       AND BUKRS = @I_BUKRS
+      INTO @DATA(LS_T001).
+
+    IF SY-SUBRC = 0.
+      R_BUTXT = LS_T001-BUTXT.
+*      IF ZCL_COC_CHK=>AUTH_BUKRS( I_BUKRS ) <> 0.
+*        MESSAGE E460(F5) WITH I_BUKRS.
+*      ENDIF.
+    ELSE.
+      MESSAGE E001(00) WITH 'Invalid Company Code: ' I_BUKRS.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>CHECK_DATE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DATE                        TYPE        ANY
+* | [<-()] RV_SUBRC                       TYPE        SUBRC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_DATE.
+
+* MM or MMM or YYYY.MM or YYYY.MMM or YYYY.MM.DD 타입 체크
+
+    CHECK IV_DATE IS NOT INITIAL.
+
+    DATA: LV_MONTH TYPE MONTH.
+    DATA(LV_STR_LENG) = STRLEN( IV_DATE ).
+
+    "길이에 따른 월 위치 확인
+    CASE LV_STR_LENG.
+      WHEN 2. LV_MONTH = IV_DATE(2).
+      WHEN 3. LV_MONTH = IV_DATE+1(2).
+      WHEN 6. LV_MONTH = IV_DATE+4(2).
+      WHEN 7. LV_MONTH = IV_DATE+5(2).
+      WHEN 8. LV_MONTH = IV_DATE+4(2).
+
+      WHEN OTHERS.
+        MESSAGE E000(0K) WITH 'Invalid date'.
+
+    ENDCASE.
+
+    CHECK LV_MONTH NOT BETWEEN '01' AND '12'.
+
+    RV_SUBRC = 4.
+
+    MESSAGE E000(0K) WITH 'Month can only be entered from 1 to 12'.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>CHECK_KOKRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_KOKRS                        TYPE        KOKRS
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_KOKRS.
+
+*-- Controlling Area check
+    CHECK I_KOKRS IS NOT INITIAL.
+
+    SELECT SINGLE *
+      FROM TKA01 CLIENT SPECIFIED
+     WHERE MANDT = @SY-MANDT
+       AND KOKRS = @I_KOKRS
+      INTO @DATA(LS_TKA01).
+
+    IF SY-SUBRC = 0.
+      R_BEZEI = LS_TKA01-BEZEI.
+    ELSE.
+      MESSAGE E680(CK) WITH I_KOKRS.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>CHECK_ADMIN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_KOKRS                        TYPE        KOKRS
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_ADMIN.
+
+		CLEAR RV_ADMIN.
+
+		"관리자여부 확인
+    SELECT SINGLE CASE AUTHO WHEN @ZCOC_A THEN @ABAP_ON ELSE @ABAP_OFF END
+      FROM ZCOCT017
+     WHERE KOKRS = @IV_KOKRS
+       AND BNAME = @IV_BNAME
+       AND AUTHO = @ZCOC_A
+      INTO @RV_ADMIN.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_COC_CHK=>CHECK_VERSN
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] I_KOKRS                        TYPE        KOKRS
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* | [<-()] R_BEZEI                        TYPE        BEZEI
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CHECK_VERSN.
+
+		CHECK IV_VERSN IS NOT INITIAL.
+
+		IF IV_ALL = ABAP_ON.
+		
+	    SELECT SINGLE FIELD07
+	      FROM ZCOCT003
+	     WHERE ZMODULE = 'CO'
+	       AND CLASS   = @IV_CLASS
+	       AND FIELD05 = @IV_KOKRS
+	       AND FIELD07 = @IV_VERSN
+	      INTO @DATA(LV_VERSN).
+
+    ELSE.
+    	
+	    SELECT SINGLE FIELD07
+	      FROM ZCOCT003
+	     WHERE ZMODULE = 'CO'
+	       AND CLASS   = @IV_CLASS
+	       AND FIELD05 = @IV_KOKRS
+	       AND FIELD07 = @IV_VERSN
+	       AND DELFLAG = @ZCOC_X
+	      INTO @LV_VERSN.
+    	
+    ENDIF.
+    
+    IF SY-SUBRC <> 0.
+    	RV_SUBRC = 4.
+    	MESSAGE S013 WITH IV_KOKRS IV_VERSN DISPLAY LIKE 'E'.
+   ENDIF.
+   
+  ENDMETHOD.
+ENDCLASS.

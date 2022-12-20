@@ -1,0 +1,520 @@
+CLASS ZCL_COC_EVENT_HANDLER DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    DATA MV_CPROG TYPE SY-CPROG .
+
+    METHODS CONSTRUCTOR
+      IMPORTING
+        VALUE(I_CPROG) TYPE SY-CPROG DEFAULT SY-CPROG .
+    METHODS HANDLE_HOTSPOT_CLICK
+          FOR EVENT HOTSPOT_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_ROW_ID
+          !E_COLUMN_ID
+          !ES_ROW_NO .
+    METHODS HANDLE_TOOLBAR
+          FOR EVENT TOOLBAR OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_OBJECT
+          !E_INTERACTIVE .
+    METHODS HANDLE_USER_COMMAND
+          FOR EVENT USER_COMMAND OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_UCOMM .
+    METHODS HANDLE_ONF4
+          FOR EVENT ONF4 OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_FIELDNAME
+          !E_FIELDVALUE
+          !ES_ROW_NO
+          !ER_EVENT_DATA
+          !ET_BAD_CELLS
+          !E_DISPLAY .
+    METHODS HANDLE_DATA_CHANGED
+          FOR EVENT DATA_CHANGED OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !ER_DATA_CHANGED
+          !E_ONF4
+          !E_ONF4_BEFORE
+          !E_ONF4_AFTER
+          !E_UCOMM .
+    METHODS HANDLE_DOUBLE_CLICK
+          FOR EVENT DOUBLE_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_ROW
+          !E_COLUMN
+          !ES_ROW_NO .
+    METHODS HANDLE_NODE_DOUBLE_CLICK
+          FOR EVENT NODE_DOUBLE_CLICK OF CL_GUI_SIMPLE_TREE
+      IMPORTING
+          !SENDER
+          !NODE_KEY .
+    METHODS HANDLE_DATA_CHANGED_FINISHED
+          FOR EVENT DATA_CHANGED_FINISHED OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_MODIFIED
+          !ET_GOOD_CELLS .
+    METHODS HANDLE_BUTTON_CLICK
+          FOR EVENT BUTTON_CLICK OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !ES_COL_ID
+          !ES_ROW_NO .
+    METHODS HANDLE_AFTER_REFRESH
+         FOR EVENT AFTER_REFRESH OF CL_GUI_ALV_GRID.
+    METHODS HANDLE_ONDRAG
+          FOR EVENT ONDRAG OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_ROW
+          !E_COLUMN
+          !ES_ROW_NO
+          !E_DRAGDROPOBJ.
+    METHODS HANDLE_ONDROP
+          FOR EVENT ONDROP OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_ROW
+          !E_COLUMN
+          !ES_ROW_NO
+          !E_DRAGDROPOBJ.
+    METHODS HANDLE_ONDROPCOMPLETE
+          FOR EVENT ONDROPCOMPLETE OF CL_GUI_ALV_GRID
+      IMPORTING
+          !SENDER
+          !E_ROW
+          !E_COLUMN
+          !ES_ROW_NO
+          !E_DRAGDROPOBJ.
+    METHODS HANDLE_TREE_BUTTON_CLICK
+          FOR EVENT BUTTON_CLICK OF CL_GUI_ALV_TREE
+      IMPORTING
+          !SENDER
+          !FIELDNAME
+          !NODE_KEY.
+    METHODS HANDLE_TREE_ITEM_DOUBLE_CLICK
+          FOR EVENT ITEM_DOUBLE_CLICK OF CL_GUI_ALV_TREE
+      IMPORTING
+          !SENDER
+          !FIELDNAME
+          !NODE_KEY.
+    METHODS HANDLE_TREE_CHECKBOX_CHANGE
+          FOR EVENT CHECKBOX_CHANGE OF CL_GUI_ALV_TREE
+      IMPORTING
+          !SENDER
+          !CHECKED
+          !FIELDNAME
+          !NODE_KEY.
+    METHODS HANDLE_TREE_LINK_CLICK
+          FOR EVENT LINK_CLICK OF CL_GUI_ALV_TREE
+      IMPORTING
+          !SENDER
+          !FIELDNAME
+          !NODE_KEY.
+    METHODS HANDLE_TREE_NODE_DOUBLE_CLICK
+          FOR EVENT NODE_DOUBLE_CLICK OF CL_GUI_ALV_TREE
+      IMPORTING
+          !SENDER
+          !NODE_KEY.
+    METHODS HANDLE_LIST_ITEM_DOUBLE_CLICK
+          FOR EVENT ITEM_DOUBLE_CLICK OF CL_GUI_LIST_TREE
+      IMPORTING
+          !SENDER
+          !NODE_KEY
+          !ITEM_NAME.
+    METHODS HANDLE_LIST_NODE_DOUBLE_CLICK
+          FOR EVENT NODE_DOUBLE_CLICK OF CL_GUI_LIST_TREE
+      IMPORTING
+          !SENDER
+          !NODE_KEY.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_EVENT_HANDLER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CONSTRUCTOR.
+
+    MV_CPROG = I_CPROG.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_AFTER_REFRESH
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_AFTER_REFRESH.
+
+    TRY.
+        CL_GUI_CFW=>FLUSH( ).
+
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_BUTTON_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_BUTTON_CLICK.
+
+    TRY.
+        PERFORM HANDLE_BUTTON_CLICK IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          ES_COL_ID
+                                          ES_ROW_NO.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_DATA_CHANGED
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_DATA_CHANGED.
+
+    " PERFORM HANDLE_DATA_CHANGED USING SENDER
+    "                                   ER_DATA_CHANGED
+    "                                   E_ONF4
+    "                                   E_ONF4_BEFORE
+    "                                   E_ONF4_AFTER
+    "                                   E_UCOMM.
+
+
+    TRY.
+        PERFORM HANDLE_DATA_CHANGED IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          ER_DATA_CHANGED
+                                          E_ONF4
+                                          E_ONF4_BEFORE
+                                          E_ONF4_AFTER
+                                          E_UCOMM.
+
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_DATA_CHANGED_FINISHED
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_DATA_CHANGED_FINISHED.
+
+    TRY.
+        PERFORM HANDLE_DATA_CHANGED_FINISHED IN PROGRAM (MV_CPROG)
+                                             USING SENDER
+                                                   E_MODIFIED
+                                                   ET_GOOD_CELLS.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_DOUBLE_CLICK.
+
+    TRY.
+        PERFORM HANDLE_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          E_ROW
+                                          E_COLUMN
+                                          ES_ROW_NO.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_HOTSPOT_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_HOTSPOT_CLICK.
+
+    " PERFORM HANDLE_HOTSPOT_CLICK USING SENDER
+    "                                     E_ROW_ID
+    "                                     E_COLUMN_ID
+    "                                     ES_ROW_NO.
+    TRY.
+        PERFORM HANDLE_HOTSPOT_CLICK IN PROGRAM (MV_CPROG)
+                                     USING SENDER
+                                           E_ROW_ID
+                                           E_COLUMN_ID
+                                           ES_ROW_NO.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_LIST_ITEM_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_LIST_ITEM_DOUBLE_CLICK.
+
+    PERFORM HANDLE_LIST_ITEM_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                          USING SENDER
+                                                NODE_KEY
+                                                ITEM_NAME.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_LIST_NODE_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_LIST_NODE_DOUBLE_CLICK.
+
+    PERFORM HANDLE_LIST_NODE_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                          USING SENDER
+                                                NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_NODE_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_NODE_DOUBLE_CLICK.
+
+    TRY.
+        PERFORM HANDLE_NODE_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                         USING SENDER
+                                               NODE_KEY.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_ONDRAG
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_ONDRAG.
+
+    TRY.
+        PERFORM HANDLE_ONDRAG IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          E_ROW
+                                          E_COLUMN
+                                          ES_ROW_NO
+                                          E_DRAGDROPOBJ.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_ONDROP
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_ONDROP.
+
+    TRY.
+        PERFORM HANDLE_ONDROP IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          E_ROW
+                                          E_COLUMN
+                                          ES_ROW_NO
+                                          E_DRAGDROPOBJ.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_ONDROPCOMPLETE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_ONDROPCOMPLETE.
+
+    TRY.
+        PERFORM HANDLE_ONDROPCOMPLETE IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          E_ROW
+                                          E_COLUMN
+                                          ES_ROW_NO
+                                          E_DRAGDROPOBJ.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_ONF4
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_ONF4.
+
+    " PERFORM HANDLE_ONF4 USING SENDER
+    "                           E_FIELDNAME
+    "                           E_FIELDVALUE
+    "                           ES_ROW_NO
+    "                           ER_EVENT_DATA
+    "                           ET_BAD_CELLS
+    "                           E_DISPLAY.
+
+    TRY.
+        PERFORM HANDLE_ONF4 IN PROGRAM (MV_CPROG)
+                            USING SENDER
+                                  E_FIELDNAME
+                                  E_FIELDVALUE
+                                  ES_ROW_NO
+                                  ER_EVENT_DATA
+                                  ET_BAD_CELLS
+                                  E_DISPLAY.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TOOLBAR
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TOOLBAR.
+
+    " PERFORM HANDLE_TOOLBAR USING SENDER
+    "                               E_OBJECT
+    "                               E_INTERACTIVE.
+
+    TRY.
+        PERFORM HANDLE_TOOLBAR IN PROGRAM (MV_CPROG)
+                               USING SENDER
+                                     E_OBJECT
+                                     E_INTERACTIVE.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+    ENDTRY.
+
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TREE_BUTTON_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TREE_BUTTON_CLICK.
+
+    PERFORM HANDLE_TREE_BUTTON_CLICK IN PROGRAM (MV_CPROG)
+                                     USING SENDER
+                                           FIELDNAME
+                                           NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TREE_CHECKBOX_CHANGE
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TREE_CHECKBOX_CHANGE.
+
+    PERFORM HANDLE_TREE_CHECKBOX_CHANGE IN PROGRAM (MV_CPROG)
+                                        USING SENDER
+                                              CHECKED
+                                              FIELDNAME
+                                              NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TREE_ITEM_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TREE_ITEM_DOUBLE_CLICK.
+
+    PERFORM HANDLE_TREE_ITEM_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                          USING SENDER
+                                                FIELDNAME
+                                                NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TREE_LINK_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TREE_LINK_CLICK.
+
+    PERFORM HANDLE_TREE_LINK_CLICK IN PROGRAM (MV_CPROG)
+                                   USING SENDER
+                                         FIELDNAME
+                                         NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_TREE_NODE_DOUBLE_CLICK
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_TREE_NODE_DOUBLE_CLICK.
+
+    PERFORM HANDLE_TREE_NODE_DOUBLE_CLICK IN PROGRAM (MV_CPROG)
+                                          USING SENDER
+                                                NODE_KEY.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Private Method ZCL_COC_EVENT_HANDLER->HANDLE_USER_COMMAND
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD HANDLE_USER_COMMAND.
+
+    " PERFORM HANDLE_USER_COMMAND USING SENDER
+    "                                   E_UCOMM.
+    TRY.
+        PERFORM HANDLE_USER_COMMAND IN PROGRAM (MV_CPROG)
+                                    USING SENDER
+                                          E_UCOMM.
+      CATCH CX_ROOT INTO DATA(LX_ROOT).
+        MESSAGE S000(0K) WITH LX_ROOT->GET_TEXT( ) DISPLAY LIKE 'E'.
+    ENDTRY.
+
+  ENDMETHOD.
+ENDCLASS.

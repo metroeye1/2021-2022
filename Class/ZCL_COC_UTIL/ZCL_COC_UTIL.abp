@@ -1,0 +1,518 @@
+CLASS ZCL_COC_UTIL DEFINITION
+  PUBLIC
+  CREATE PUBLIC .
+
+PUBLIC SECTION.
+
+CLASS-METHODS GET_TITLE
+IMPORTING
+  VALUE(I_TCODE) TYPE ANY OPTIONAL
+RETURNING
+  VALUE(R_TITLE) TYPE STRING.
+CLASS-METHODS GET_NODE_TABLE
+IMPORTING
+  !IV_KOKRS TYPE KOKRS
+  !IV_SETCLASS TYPE ANY
+  !IV_GROUP TYPE ANY OPTIONAL
+  !IR_RANGE TYPE STANDARD TABLE OPTIONAL
+  !IV_DEL_NO_CHILD TYPE ANY DEFAULT 'X'
+RETURNING
+  VALUE(R_NODE) TYPE ZCOCTT005.
+CLASS-METHODS SHOW_RESULT_COUNT
+IMPORTING
+  !IV_SUC TYPE I OPTIONAL
+  !IV_ERR TYPE I OPTIONAL.
+CLASS-METHODS CHECK_ATTACHMENT
+IMPORTING
+  !I_OBJTYP TYPE ANY
+  !I_OBJKEY TYPE ANY
+RETURNING
+  VALUE(R_RETURN) TYPE STRNG.
+CLASS-METHODS DELETE_ATTACHMENT
+IMPORTING
+  !I_OBJTYP TYPE ANY
+  !I_OBJKEY TYPE ANY
+RETURNING
+  VALUE(R_RETURN) TYPE STRNG.
+CLASS-METHODS GET_AVAILABLE_RESOURCE
+IMPORTING
+  !IV_APPSVR TYPE ANY OPTIONAL
+CHANGING
+  !CV_APPSVR TYPE RZLLI_APCL OPTIONAL
+RETURNING
+  VALUE(R_AVAILABLE) TYPE I.
+CLASS-METHODS F4_YEAR
+IMPORTING
+  VALUE(I_YEAR) TYPE ANY OPTIONAL
+RETURNING
+  VALUE(R_RETURN) TYPE GJAHR.
+CLASS-METHODS F4_MONTH
+IMPORTING
+  VALUE(I_MONTH) TYPE ANY OPTIONAL
+RETURNING
+  VALUE(R_RETURN) TYPE MONAT.
+CLASS-METHODS GET_RANGE_DATUM
+IMPORTING
+  VALUE(IV_DATE) TYPE ANY OPTIONAL
+  VALUE(IV_GJAHR) TYPE GJAHR OPTIONAL
+  VALUE(IR_DATE) TYPE DRF_T_SELOPT OPTIONAL
+RETURNING
+  VALUE(R_RETURN) TYPE T_RANGE_SDATE.
+CLASS-METHODS POPUP_BDC_MODE
+IMPORTING
+  VALUE(I_MODE) TYPE ANY DEFAULT 'N'
+RETURNING
+  VALUE(R_MODE) TYPE BDCMODE.
+
+PROTECTED SECTION.
+PRIVATE SECTION.
+ENDCLASS.
+  
+CLASS ZCL_COC_UTIL IMPLEMENTATION.
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>GET_NODE_TABLE
+* +-------------------------------------------------------------------------------------------------+
+METHOD GET_NODE_TABLE.
+
+    "TREE STRUCTURE
+    DATA: BEGIN OF LS_RELKEY,
+            LEVEL00 TYPE NODE_STR-RELATKEY,
+            LEVEL01 TYPE NODE_STR-RELATKEY,
+            LEVEL02 TYPE NODE_STR-RELATKEY,
+            LEVEL03 TYPE NODE_STR-RELATKEY,
+            LEVEL04 TYPE NODE_STR-RELATKEY,
+            LEVEL05 TYPE NODE_STR-RELATKEY,
+            LEVEL06 TYPE NODE_STR-RELATKEY,
+            LEVEL07 TYPE NODE_STR-RELATKEY,
+            LEVEL08 TYPE NODE_STR-RELATKEY,
+            LEVEL09 TYPE NODE_STR-RELATKEY,
+            LEVEL10 TYPE NODE_STR-RELATKEY,
+          END OF LS_RELKEY.
+
+    DATA: LT_NODES  TYPE TABLE OF GRPOBJECTS,
+          LT_VALUES TYPE TABLE OF GRPVALUES.          
+
+    DATA: L_CNT     TYPE I,
+          L_RELKEY  TYPE TV_NODEKEY,
+          LT_CHILD  TYPE ZCOCTT005,      "ZCOCTT005 = ZCOCCMS005[ VALUE(CHAR40) + NODE_STR 구조]의 TABLE TYPE
+          LV_DEL    TYPE CHAR1.
+
+    CLEAR: LT_NODES, LT_VALUES.
+
+    CHECK IV_GROUP IS NOT INITIAL.
+
+    "GROUP INFO
+    ZCL_COC_COMM=>GET_HIERARCHY_GROUP_LIST( EXPORTING IV_KOKRS      = IV_KOKRS  
+                                                      IV_SETCLASS   = IV_SETCLASS
+                                                      IV_GROUP_CODE = IV_GROUP
+                                            IMPORTING ET_NODES      = LT_NODES
+                                                      ET_VALUES     = LT_VALUES ).
+
+    SORT: LT_NODES, LT_VALUES.
+    
+    "중복데이터 제거
+    DELETE ADJACENT DUPLICATES FROM LT_VALUES COMPARING SETID VFROM.
+
+    "노드 생성
+    LOOP AT LT_NODES INTO DATA(LS_NODES).
+
+        L_CNT += 1.
+
+        "RELKEY 부여
+        DATA(L_FIELD) = |LS_RELKEY-LEVEL{ CONV NUMC2( LS_NODES-HLEVEL ) }|.
+        ASSIGN (L_FIELD) TO FIELD-SYMBOL(<FS>).
+
+        R_NODE = VALUE #( BASE R_NODE ( NODE_KEY  = L_CNT      
+                                        RELATKEY  = <FS>
+                                        ISFOLDER  = ABAP_ON
+                                        VALUE     = LS_NODES-SHORTNAME
+                                        N_IMAGE   = ICON_TREE
+                                        EXP_IMAGE = ICON_TREE
+                                        TEXT      = |{ LS_NODES-SHORTNAME } { LS_NODES-DESCRIPT }| ) ).
+
+        "RELKEY 관리
+        L_FIELD = |LS_RELKEY-LEVEL{ CONV NUMC2( LS_NODES-HLEVEL + 1 ) }|.                                        
+        ASSIGN (L_FIELD) TO <FS>.
+        <FS> = L_CNT.
+
+        "LEAF 생성
+        LOOP AT LT_VALUES INTO DATA(LS_VALUES) WHERE SETID EQ LS_NODES-SETID   
+                                                 AND VFROM IN IR_RANGE[].
+            L_CNT += 1.
+
+            R_NODE = VALUE #( BASE R_NODE ( NODE_KEY  = L_CNT      
+                                            RELATKEY  = <FS>
+                                            ISFOLDER  = ' '
+                                            VALUE     = LS_VALUES-VFROM
+                                            N_IMAGE   = ICON_COST_CENTER
+                                            EXP_IMAGE = ICON_COST_CENTER
+                                            TEXT      = |{ LS_VALUES-VFROM } { LS_VALUES-DESCRIPT }| ) ).
+
+        ENDLOOP.
+
+    ENDLOOP.
+
+    "CHILD 없는 건 삭제
+    CHECK IV_DEL_NO_CHILD = ABAP_ON.
+
+    DO 20 TIMES.
+        CLEAR LV_DEL.
+        LT_CHILD[] = R_NODE[].
+        
+        LOOP AT R_NODE ASSIGNING FIELD-SYMBOL(<FS_NODE>) WHERE ISFOLDER = ABAP_ON.
+            IF NOT LINE_EXISTS( LT_CHILD[ RELATKEY = <FS_NODE>-NODE_KEY ] ).
+                DELETE R_NODE.
+                LV_DEL = ABAP_ON.
+            ENDIF.
+        ENDLOOP.
+        IF LV_DEL IS INITIAL.
+            EXIT.
+        ENDIF.
+    ENDDO.
+
+ENDMETHOD.   
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>GET_TITLE
+* +-------------------------------------------------------------------------------------------------+
+METHOD GET_TITLE.
+
+    IF I_TCODE(1) <> 'Z'.
+        I_TCODE = SY-CPROG.
+    ENDIF.
+
+    SELECT SINGLE TTEXT
+      FROM TSTCT
+      INTO R_TITLE
+     WHERE SPRSL = SY-LANGU
+       AND TCODE = I_TCODE.
+
+    CHECK SY-SUBRC NE 0.
+    
+    SELECT SINGLE TEXT
+      FROM TRDIRT
+      INTO R_TITLE
+     WHERE SPRSL = SY-LANGU
+       AND NAME  = I_TCODE.
+
+ENDMETHOD.    
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>SHOW_RESULT_COUNT
+* +-------------------------------------------------------------------------------------------------+
+METHOD SHOW_RESULT_COUNT.
+
+    DATA(IV_TOT) = CONV I( IV_SUC + IV_ERR ).
+
+    IF IV_ERR IS INITIAL.
+        MESSAGE S015(ZCOC1) WITH IV_TOT IV_SUC IV_ERR.
+    ELSE.
+        MESSAGE S015(ZCOC1) WITH IV_TOT IV_SUC IV_ERR DISPLAY LIKE 'E'.
+    ENDIF.
+
+ENDMETHOD.   
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>CHECK_ATTACHMENT
+* +-------------------------------------------------------------------------------------------------+
+METHOD CHECK_ATTACHMENT.
+
+    "READ LINKS
+    DATA(LS_OBJECT) = VALUE SIBFLPORB( INSTID = I_OBJKEY
+                                       TYPEID = I_OBJTYP 
+                                       CATID  = SIBF_CATID_BO ).
+
+    TRY.
+        CL_BINARY_RELATION=>READ_LINKS_OF_BINREL(
+            EXPORTING 
+                IS_OBJECT   = LS_OBJECT
+                IP_RELATION = CL_GOS_API=>C_ATTA
+            IMPORTING
+                ET_LINKS    = DATA(LT_LINKS) ).
+    ENDTRY.  
+    
+    CLEAR: R_RETURN.
+    IF LT_LINKS IS NOT INITIAL.
+        R_RETURN = ABAP_ON.
+    ENDIF.
+
+ENDMETHOD.    
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>DELETE_ATTACHMENT
+* +-------------------------------------------------------------------------------------------------+
+METHOD DELETE_ATTACHMENT.
+
+    DATA: LS_FOLDER_ID TYPE SOFDK,
+          LS_OBJECT_ID TYPE SOODK.
+
+    CHECK I_OBJKEY IS NOT INITIAL.
+    CHECK I_OBJTYP IS NOT INITIAL.
+
+    DATA(LS_BORIDENT_A) = VALUE SIBFLPORB( INSTID = I_OBJKEY 
+                                           TYPEID = I_OBJTYP 
+                                           CATID  = SIBF_CATID_BO ).
+
+    SELECT INSTID_B,
+           TYPEID_B,
+           CATID_B
+      FROM SRGBTBREL
+     WHERE INSTID_A = @LS_BORIDENT_A-INSTID
+       AND TYPEID_A = @LS_BORIDENT_A-TYPEID
+       AND CATID_A  = @LS_BORIDENT_A-CATID
+       AND RELTYPE  = @( CL_GOS_API=>C_ATTA )
+      INTO TABLE @DATA(LT_SRGBTBREL).
+
+    IF SY-SUBRC = 0.
+        LOOP AT LT_SRGBTBREL ASSIGNING FIELD-SYMBOL(<FS_SRGBTBREL>).
+            "DELETE LINK
+            DATA(LS_BORIDENT_B) = VALUE SIBFLPORB( INSTID = <FS_SRGBTBREL>-INSTID_B
+                                                   TYPEID = <FS_SRGBTBREL>-TYPEID_B 
+                                                   CATID  = <FS_SRGBTBREL>-CATID_B ).
+            CL_BINARY_RELATION=>DELETE_LINK(
+                EXPORTING
+                    IS_OBJECT_A = LS_BORIDENT_A
+                    IS_OBJECT_B = LS_BORIDENT_B
+                    IP_RELTYPE  = CL_GOS_API=>C_ATTA ).
+
+            LS_FOLDER_ID = LS_BORIDENT_B-INSTID(17).
+            LS_OBJECT_ID = LS_BORIDENT_B-INSTID+17.
+
+            "DELETE ATTACH OBJECT
+            CALL FUNCTION 'SO_OBJECT_DELETE'
+                EXPORTING
+                    FOLDER_ID                = LS_FOLDER_ID
+                    OBJECT_ID                = LS_OBJECT_ID
+                EXCEPTIONS
+                    FOLDER_NOT_EMPTY           = 39
+                    FOLDER_NOT_EXIST           = 36
+                    FOLDER_NO_AUTHORIZATION    = 05
+                    FORWARDER_NOT_EXIST        = 08
+                    OBJECT_NOT_EXIST           = 14
+                    OBJECT_NO_AUTHORIZATION    = 13
+                    OPERATION_NO_AUTHORIZATION = 21
+                    OWNER_NOT_EXIST            = 22
+                    SUBSTITUTE_NOT_ACTIVE      = 31
+                    SUBSTITUTE_NOT_DEFINED     = 32
+                    X_ERROR                    = 1000.
+                                                        
+            CASE SY-SUBRC.
+                WHEN 0.
+                    COMMIT WORK.
+                    MESSAGE S899(F2) WITH 'Delete Success'.
+            ENDCASE.
+
+        ENDLOOP.
+
+    ENDIF.
+
+ENDMETHOD.    
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>GET_AVAILABLE_RESOURCE
+* +-------------------------------------------------------------------------------------------------+
+METHOD GET_AVAILABLE_RESOURCE.
+
+    DATA: LV_TOTAL     TYPE I,
+          LV_AVAILABLE TYPE I.
+
+    DATA(LV_APPSVR) = CONV RZLLI_APCL( IV_APPSVR ).
+
+    IF LV_APPSVR IS INITIAL.
+        SELECT CLASSNAME
+          FROM RZLLITAB
+         ORDER BY CLASSNAME
+          INTO @LV_APPSVR UP TO 1 ROWS.
+        ENDSELECT.
+    ENDIF.
+
+    CALL FUNCTION 'SPBT_INITIALIZE'
+        EXPORTING
+            GROUP_NAME         = LV_APPSVR
+        IMPORTING
+            MAX_PBT_WPS        = LV_TOTAL
+            FREE_PBT_WPS       = LV_AVAILABLE
+        EXCEPTIONS
+            INVALID_GROUP_NAME = 1
+            INTERNAL_ERROR     = 2
+            PBT_ENV_ALREADY_INITIALIZED  = 3
+            CURRENTLY_NO_RESOURCES_AVAIL = 4
+            NO_PBT_RESOURCES_FOUND       = 5
+            CANT_INIT_DIFFERENT_PBT_GROUPS = 6
+            OTHERS                         = 7.
+
+    CASE SY-SUBRC.
+        WHEN 0.
+        WHEN 3.
+            CALL FUNCTION 'SPBT_GET_CURR_RESOURCE_INFO'
+                IMPORTING
+                    MAX_PBT_WPS             = LV_TOTAL
+                    FREE_PBT_WPS            = LV_AVAILABLE
+                EXCEPTIONS  
+                    INTERNAL_ERROR          = 1
+                    PBT_ENV_NOT_INITIALIZED_YET = 2
+                    OTHERS                      = 3.
+
+    ENDCASE.
+
+    CV_APPSVR   = LV_APPSVR.
+    R_AVAILABLE = LV_AVAILABLE.
+
+
+ENDMETHOD.    
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>POPUP_BDC_MODE
+* +-------------------------------------------------------------------------------------------------+
+METHOD POPUP_BDC_MODE.
+
+    DATA(LT_FIELDS) = VALUE TY_SVAL( ( TABNAME   = 'BDC_STRUC'
+                                       FIELDNAME = 'BDCMODE'
+                                       VALUE     = I_MODE
+                                       FIELD_OBL = ABAP_ON ) ).
+
+    CALL FUNCTION 'POPUP_GET_VALUES'
+        EXPORTING
+            POPUP_TITLE = 'BDC 모드'                                    
+        TABLES
+            FIELDS      = LT_FIELDS.
+
+    CHECK LT_FIELDS IS NOT INITIAL.
+
+    R_MODE = LT_FIELDS[ 1 ]-VALUE.
+    
+ENDMETHOD.    
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>F4_YEAR
+* +-------------------------------------------------------------------------------------------------+
+METHOD F4_YEAR.
+
+    IF I_YEAR IS NOT INITIAL.
+        DATA(LV_YEAR) = CONV GJAHR( I_YEAR ).
+    ENDIF.
+
+    CALL FUNCTION 'REAL_ESTATE_F4_YEAR'
+        EXPORTING
+            I_YEAR          = LV_YEAR
+            I_POPUP_TITLE   = '연도선택'
+        IMPORTING
+            E_YEAR          = R_RETURN.
+
+ENDMETHOD.    
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>F4_MONTH
+* +-------------------------------------------------------------------------------------------------+
+METHOD F4_MONTH.
+
+    IF I_MONTH IS NOT INITIAL.
+        DATA(LV_MONTH) = CONV MONAT( I_MONTH ).
+    ENDIF.
+
+    CALL FUNCTION 'REAL_ESTATE_F4_MONTH'
+        EXPORTING
+            I_MONTH         = LV_MONTH
+            I_POPUP_TITLE   = '기간선택'
+        IMPORTING
+            E_MONTH         = R_RETURN.
+
+ENDMETHOD.    
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | STATIC PUBLIC METHOD ZCL_COC_UTIL=>GET_RANGE_DATUM
+* +-------------------------------------------------------------------------------------------------+
+METHOD GET_RANGE_DATUM.
+
+    IF IV_DATE IS NOT INITIAL.
+        DATA(LV_LEN) = STRLEN( IV_DATE ).
+        
+        IF IV_DATE CN '0123456789'.
+            EXIT.
+        ENDIF.
+
+        CASE LV_LEN.
+            WHEN 3. "MMM
+                DATA(LV_BUDAT_F) = CONV DATS( |{ IV_GJAHR }{ IV_DATE+1 }01| ).
+            WHEN 6. "YYYYMM
+                LV_BUDAT_F = CONV DATS( |{ IV_DATE }01| ).
+            WHEN 7. "YYYYMMM
+                LV_BUDAT_F = CONV DATS( |{ IV_DATE(4) }{ IV_DATE+5(2) }01| ).
+            WHEN 8. "YYYYMMDD
+                LV_BUDAT_F = CONV DATS( |{ IV_DATE }| ).
+            WHEN OTHERS.
+                EXIT.
+        ENDCASE.
+
+        DATA(LV_BUDAT_L) = CONV DATS( ZCL_COC_COMM=>GET_LAST_DATS( LV_BUDAT_F ) ). "월말
+
+        R_RETURN = VALUE #( ( SIGN = 'I' OPTION = 'BT' LOW = LV_BUDAT_F HIGH = LV_BUDAT_L ) ).
+
+        EXIT.
+
+    ENDIF.
+
+    "날짜 범위 입력 시
+    IF IR_DATE IS NOT INITIAL.
+
+        LOOP AT IR_DATE ASSIGNING FIELD-SYMBOL(<FS_DATE>).
+            CLEAR: LV_BUDAT_F, LV_BUDAT_L.
+
+            LV_LEN = STRLEN( <FS_DATE>-LOW ).
+
+            IF <FS_DATE>-LOW CN '0123456789'.
+                EXIT.
+            ENDIF.
+
+            CASE LV_LEN.
+                WHEN 3. "MMM
+                    LV_BUDAT_F = CONV DATS( |{ IV_GJAHR }{ <FS_DATE>-LOW+1 }01| ).
+                WHEN 6. "YYYYMM
+                    LV_BUDAT_F = CONV DATS( |{ <FS_DATE>-LOW }01| ).
+                WHEN 7. "YYYYMMM
+                    LV_BUDAT_F = CONV DATS( |{ <FS_DATE>-LOW(4) }{ <FS_DATE>-LOW+5(2) }01| ).
+                WHEN 8. "YYYYMMDD
+                    LV_BUDAT_F = CONV DATS( |{ <FS_DATE>-LOW }| ).
+                WHEN OTHERS.
+                    EXIT.
+            ENDCASE.
+
+            IF <FS_DATE>-HIGH CO '0 '.
+                LV_BUDAT_L = CONV DATS( ZCL_COC_COMM=>GET_LAST_DATS( LV_BUDAT_F ) ). "월말
+            ELSE.
+                CASE LV_LEN.
+                    WHEN 3. "MMM
+                        LV_BUDAT_L = CONV DATS( |{ IV_GJAHR }{ <FS_DATE>-HIGH+1 }01| ).
+                    WHEN 6. "YYYYMM
+                        LV_BUDAT_L = CONV DATS( |{ <FS_DATE>-HIGH }01| ).
+                    WHEN 7. "YYYYMMM
+                        LV_BUDAT_L = CONV DATS( |{ <FS_DATE>-HIGH(4) }{ <FS_DATE>-HIGH+5(2) }01| ).
+                    WHEN 8. "YYYYMMDD
+                        LV_BUDAT_L = CONV DATS( |{ <FS_DATE>-HIGH }| ).
+                    WHEN OTHERS.
+                        EXIT.
+                ENDCASE.
+                LV_BUDAT_L = CONV DATS( ZCL_COC_COMM=>GET_LAST_DATS( LV_BUDAT_L ) ). "월말                
+            ENDIF.
+
+            R_RETURN = VALUE #( BASE R_RETURN 
+                                ( SIGN = 'I' OPTION = 'BT' LOW = LV_BUDAT_F HIGH = LV_BUDAT_L ) ).
+
+        ENDLOOP.
+        EXIT.
+    ENDIF.
+
+    "연도 입력 시
+    IF IV_GJAHR IS NOT INITIAL AND IR_DATE IS INITIAL.
+        R_RETURN = VALUE #( ( SIGN = 'I' OPTION = 'BT' LOW = |{ IV_GJAHR }0101| HIGH = |{ IV_GJAHR }1231| ) ).
+    ENDIF.
+
+ENDMETHOD.    
+
+ENDCLASS.
+    

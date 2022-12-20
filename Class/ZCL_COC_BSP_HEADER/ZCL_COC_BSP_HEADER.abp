@@ -1,0 +1,197 @@
+CLASS ZCL_COC_BSP_HEADER DEFINITION
+  PUBLIC
+  CREATE PUBLIC.
+
+PUBLIC SECTION.
+
+  CLASS-DATA HEADER_HEIGHT TYPE I VALUE 26.
+  CONSTANTS TRUE TYPE ALBOOL VALUE 1.
+  CONSTANTS FALSE TYPE ALBOOL VALUE 0.
+
+  METHODS CONSTRUCTOR
+    IMPORTING 
+      !PARENT_CONTAINER TYPE REF TO CL_GUI_CONTAINER
+      !HEADER_TITLE TYPE STRING OPTIONAL
+      !RUNS_IN_WEB TYPE CHAR1 DEFAULT ' '
+    EXCEPTIONS
+      CANT_CREATE_HEADER.
+  METHODS SET_HEADER_TITLE
+    IMPORTING
+      !TITLE TYPE STRING
+    EXCEPTIONS
+      TITLE_MISSING
+      CANT_SET_TITLE.
+PROTECTED SECTION.
+
+  DATA RUNNING_IN_WEB TYPE CHAR1 VALUE ''.
+PRIVATE SECTION.
+
+  DATA HTML_VIEWER TYPE REF TO CL_CCMS_BSP_VIEWER.
+  DATA MY_HEADER_TITLE TYPE STRING.
+
+  METHODS GET_HTML_TABLE
+    EXPORTING
+      !HTML_TABLE TYPE STANDARD TABLE.
+  METHODS SHOW.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_BSP_HEADER IMPLEMENTATION.
+
+
+
+
+    
+
+
+
+
+
+  METHOD CONSTRUCTOR.
+
+    RUNNING_IN_WEB = RUNS_IN_WEB.
+
+    IF NOT RUNNING_IN_WEB = 'X'.
+      
+      "HTML - VIEWR
+      HTML_VIEWER = NEW #( PARENT = PARENT_CONTAINER ).
+      IF SY-SUBRC NE 0.
+        RAISE CANT_CREATE_HEADER.
+      ENDIF.
+
+      "REMOVE SCROLLER
+      HTML_VIEWER->SET_STYLE( SCROLLING = 'no' FROG = '' ).
+
+    ENDIF.
+
+    MY_HEADER_TITLE = HEADER_TITLE.
+
+  ENDMETHOD.
+
+
+
+
+
+
+
+  METHOD GET_HTML_TABLE.
+
+    DATA LINE TYPE HTMLLINE.
+
+    "MACRO
+    DEFINE ADDLINE.
+      LINE = &1.
+      APPEND LINE TO HTML_TABLE[].
+    END-OF-DEFINITION.
+
+    "BUILD HTML PAGE
+    CLEAR HTML_TABLE.
+
+    IF RUNNING_IN_WEB <> 'X'.
+      ADDLINE '<html>'.
+      ADDLINE '<body>'.
+    ENDIF.
+
+    "STYLES
+    ADDLINE '<style type="text/css">'.
+
+    IF RUNNING_IN_WEB <> 'X'.
+    "   ADDLINE '  Body {margin:0mm;background:#102973;'.
+    "   ADDLINE '  Body {margin:0mm;background:#2A507D;'.
+      ADDLINE '  Body {margin:0mm;background:#2f4f4f;'.
+
+      ADDLINE '  }'.
+    ENDIF.
+
+    ADDLINE '  .visheader {'.
+    ADDLINE '  font-family: Arial, ARIAL, Helvetica, sans-serif;'.
+    ADDLINE '  font-size: 10pt;'.
+    ADDLINE '  font-weight: bold;'.
+    " ADDLINE '  color:       #97A1C9;'.
+    ADDLINE '  color:       #F6FFEE;'.
+    " ADDLINE '  background-color: #102973;'.
+    " ADDLINE '  background-color: #2A507D;'.
+    " ADDLINE '  background-color: #2f4f4f;'.
+    " ADDLINE '  background-color: #000000;'.
+    ADDLINE '  background: linear-gradient(#2f4f4f, #000000);'.
+    ADDLINE '</style>'.
+
+    IF RUNNING_IN_WEB <> 'X'.
+      ADDLINE '</head>'.
+      ADDLINE '<body>'.
+    ENDIF.
+
+    ADDLINE '  <table class="visheader" width="100%" border="0">'.
+    ADDLINE '   <tr height="18">'.
+    ADDLINE '    <td class="visheader" align="left" valign="middle">'.
+    ADDLINE '     <nobr> &nbsp; '.
+    ADDLINE MY_HEADER_TITLE.
+    ADDLINE '     </nobr>'.
+    ADDLINE '    </td>'.
+    ADDLINE '   </tr>'.
+    ADDLINE '  </table>'.
+
+    IF RUNNING_IN_WEB <> 'X'.
+      ADDLINE '</body>'.
+      ADDLINE '</html>'.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+
+
+
+
+
+
+
+  METHOD SET_HEADER_TITLE.
+
+    IF TITLE IS INITIAL.
+      RAISE TITLE_MISSING.
+    ENDIF.
+
+    MY_HEADER_TITLE = TITLE.
+
+    ME->SHOW( ).
+    
+    IF SY-SUBRC NE 0.
+      RAISE CANT_SET_TITLE.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+
+
+
+
+  METHOD SHOW.
+
+    DATA: CONTENT  TYPE W3HTMLTABTYPE,
+          URL(256) TYPE C.
+
+    IF NOT HTML_VIEWER IS INITIAL.
+        
+      "GET THE HTML
+      GET_HTML_TABLE( IMPORTING HTML_TABLE = CONTENT ).
+
+      "LOAD THE HTML INTO CONTROL
+      HTML_VIEWER->LOAD_DATA( EXPORTING TYPE         = 'text'
+                                        SUBTYPE      = 'html'
+                                        SIZE         = 0
+                              IMPORTING ASSIGNED_URL = URL
+                              CHANGING  DATA_TABLE   = CONTENT ).
+
+      "SHOW
+      HTML_VIEWER->SHOW_DATA( URL = URL ).
+
+    ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.
+
+
+

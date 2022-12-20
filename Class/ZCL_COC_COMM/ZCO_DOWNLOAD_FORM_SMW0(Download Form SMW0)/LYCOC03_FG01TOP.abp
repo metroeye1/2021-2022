@@ -1,0 +1,5 @@
+FUNCTION-POOL YCOC03_FG01.                  "MESSAGE-ID ..
+
+* INCLUDE LYCOC03_FG01D...                   " Local class definition
+
+----------------------------------------------------------------------

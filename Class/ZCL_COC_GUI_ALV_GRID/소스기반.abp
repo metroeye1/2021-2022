@@ -1,0 +1,31 @@
+class ZCL_COC_GUI_ALV_GRID definition
+  public
+  inheriting from CL_GUI_ALV_GRID
+  final
+  create public .
+
+public section.
+
+  methods OPTIMIZE_ALL_COL
+    importing
+      !INCLUDE_HEADER type I default 1 .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_GUI_ALV_GRID IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_GUI_ALV_GRID->OPTIMIZE_ALL_COL
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] INCLUDE_HEADER                 TYPE        I (default =1)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD OPTIMIZE_ALL_COL.
+
+    ME->OPTIMIZE_ALL_COLS( INCLUDE_HEADER = INCLUDE_HEADER ).
+
+  ENDMETHOD.
+ENDCLASS.

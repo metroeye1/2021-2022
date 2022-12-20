@@ -1,0 +1,1255 @@
+class ZCL_COC_ALV definition
+  public
+  final
+  create public .
+
+public section.
+
+  class-data MV_OKCODE type SY-UCOMM .
+  data MO_ALV_STREE type ref to CL_GUI_ALV_TREE_SIMPLE .
+  data MO_ALV_TREE type ref to CL_GUI_ALV_TREE .
+  data MO_BODY type ref to CL_GUI_CONTAINER .
+  data MO_BOTTOM type ref to CL_GUI_CONTAINER .
+  data MO_CTREE type ref to CL_GUI_COLUMN_TREE .
+  data MO_CUS_CON type ref to CL_GUI_CUSTOM_CONTAINER .
+  data MO_CUS_CON1 type ref to CL_GUI_CUSTOM_CONTAINER .
+  data MO_DOCKING type ref to CL_GUI_DOCKING_CONTAINER .
+  data MO_DOCKING1 type ref to CL_GUI_DOCKING_CONTAINER .
+  data MO_DRAGDROP type ref to CL_DRAGDROP .
+  data MO_DRAGDROP1 type ref to CL_DRAGDROP .
+  data MO_GRID type ref to ZCL_COC_GUI_ALV_GRID .
+  data MO_GRID1 type ref to ZCL_COC_GUI_ALV_GRID .
+  data MO_HEAD type ref to CL_GUI_CONTAINER .
+  data MO_LEFT type ref to CL_GUI_CONTAINER .
+  data MO_MAIN type ref to CL_GUI_CONTAINER .
+  data MO_RIGHT type ref to CL_GUI_CONTAINER .
+  data MO_ROOT type ref to CX_ROOT .
+  data MO_SPLIT type ref to CL_GUI_SPLITTER_CONTAINER .
+  data MO_SPLIT_EASY type ref to CL_GUI_EASY_SPLITTER_CONTAINER .
+  data MO_SPLIT_SUB type ref to CL_GUI_SPLITTER_CONTAINER .
+  data MO_STREE type ref to CL_GUI_SIMPLE_TREE .
+  data MO_TOP_OF_PAGE type ref to CL_DD_DOCUMENT .
+  data MS_FDCAT_LVC type LVC_S_FCAT .
+  data MS_FDCAT_SLIS type SLIS_FIELDCAT_ALV .
+  data MS_FILTER type LVC_S_FILT .
+  data MS_LAYOUT type LVC_S_LAYO .
+  data MS_ROW type LVC_S_ROW.
+  data MS_STBL type LVC_S_STBL value 'XX' ##NO_TEXT.
+  data MS_VARIANT type DISVARIANT .
+  data MT_CELLTAB type LVC_T_STYL .
+  data MT_FDCAT_LVC type LVC_T_FCAT .
+  data MT_FDCAT_SLIS type SLIS_T_FIELDCAT_ALV .
+  data MT_FILTER type LVC_T_FILT .
+  data MT_ROW type LVC_T_ROW.
+  data MT_RSPARAMS type RSPARAMS_TT .
+  data MT_SORT type LVC_T_SORT .
+  data MT_UI_FUNCTIONS type UI_FUNCTIONS .
+  data MV_UCOMM type SY-UCOMM .
+  data MV_VARIANT_SAVE type CHAR01 value 'A' ##NO_TEXT.
+	data MT_DROPDOWN TYPE LVC_T_DRAL.
+  DATA MO_DIALOGBOX TYPE REF TO CL_GUI_DIALOGBOX_CONTAINER.
+  DATA MO_HEAD1 TYPE REF TO CL_GUI_CONTAINER.
+  DATA MO_HEAD2 TYPE REF TO CL_GUI_CONTAINER.
+  DATA MO_BODY1 TYPE REF TO CL_GUI_CONTAINER.
+  DATA MO_BODY2 TYPE REF TO CL_GUI_CONTAINER.
+  DATA MO_HEADER1 TYPE REF TO ZCL_COC_BAR_COMPONENT.
+  DATA MO_HEADER2 TYPE REF TO ZCL_COC_BAR_COMPONENT.
+  DATA MO_LIST_TREE TYPE REF TO CL_GUI_LIST_TREE.
+
+  methods CONSTRUCTOR
+    importing
+      !IV_TYPE type CHAR01 default 'X' .
+  methods ALV_DEFAULT_VARIANT
+    returning
+      value(RV_DEFAULT_VARIANT) type DISVARIANT-VARIANT .
+  methods MAKE_FIELDCATALOG2
+    importing
+      !IV_MODE type CHAR01 default 'S'
+      !IV_TABNAME type TABNAME optional
+      !IT_TABLE type STANDARD TABLE optional
+    returning
+      value(RT_FIELDCAT) type LVC_T_FCAT .
+  methods MAKE_FIELDCATALOG
+    importing
+      !IV_REPID type REPID default SY-CPROG
+      !IV_MODE type CHAR01 default 'S'
+      !IV_TABNAME type TABNAME optional
+      !IV_SET_TEXT_FIELD type CHAR01 default 'X'
+      !IT_TABLE type STANDARD TABLE optional
+    returning
+      value(RT_FIELDCAT) type LVC_T_FCAT .
+  methods GET_FDCAT_SLIS
+    importing
+      !IV_PROGRAM_NAME type SY-REPID optional
+      !IV_INTERNAL_TABNAME type SLIS_TABNAME optional
+      !IV_STRUCTURE type DD02L-TABNAME optional
+      !IV_CLIENT_NEVER_DISPLAY type SLIS_CHAR_1 optional
+      !IV_INCLNAME type TRDIR-NAME optional
+      !IV_BYPASSING_BUFFER type CHAR01 optional
+      !IV_BUFFER_ACTIVE type CHAR01 optional
+    returning
+      value(RT_FIELDCAT) type SLIS_T_FIELDCAT_ALV .
+  methods GET_FDCAT_LVC
+    importing
+      !IV_STRUCTURE type TABNAME
+    returning
+      value(RT_FIELDCAT) type LVC_T_FCAT .
+  methods GET_REFERENCE_FDCAT
+    importing
+      value(IT_TABLE) type STANDARD TABLE
+    returning
+      value(RT_FIELDCAT) type LVC_T_FCAT .
+  methods CHANGE_SLIS_TO_FDCAT
+    importing
+      value(IT_FIELDCAT_ALV) type SLIS_T_FIELDCAT_ALV
+      value(IT_DATA) type STANDARD TABLE
+    exporting
+      value(ET_FIELDCAT_LVC) type LVC_T_FCAT .
+  methods CHANGE_FDCAT_TEXT
+    importing
+      !IV_GET_TEXT type CHAR01 default 'X'
+    changing
+      !CT_FDCAT type LVC_T_FCAT optional .
+  methods CLEAR_FDCAT_LVC .
+  methods CLEAR_FDCAT_SLIS .
+  methods SET_LAYOUT
+    importing
+      !IV_TYPE type CHAR01 default '1' .
+  methods SET_TOOLBAR_STD
+    importing
+      !IV_TYPE type CHAR01 default '1' .
+  methods SET_VARIANT
+    importing
+      !IV_HANDL type SLIS_HANDL default '1' .
+  methods CLEAR_ROW.
+  methods SET_DRDN_LIST
+    importing
+      !IV_TYPE type CHAR01 DEFAULT '1'
+      !IV_HANDLE TYPE INT4 optional
+      !IV_DOMNAME TYPE DOMNAME optional
+    returning
+      VALUE(MT_DROPDOWN) TYPE LVC_T_DRAL.
+  methods REFRESH_ALV
+    importing
+      !IV_OPTA type CHAR01 optional
+      !IS_STBL TYPE LVC_S_STBL optional
+      !IS_LAYO TYPE LVC_S_LAYO optional
+      !IT_FILT TYPE LVC_T_FILT optional
+      !IT_SORT TYPE LVC_T_SORT optional
+      !IT_FCAT TYPE LVC_T_FCAT optional
+    changing
+      !IO_GRID TYPE REF TO ZCL_COC_GUI_ALV_GRID optional.
+  CLASS-METHODS GET_FRONT_FIELDCATALOG
+    importing
+      VALUE(I_GRID) TYPE REF TO ZCL_COC_GUI_ALV_GRID optional
+    returning
+      VALUE(R_FCAT) TYPE LVC_T_FCAT.
+  CLASS-METHODS GET_FIELDCATALOG
+    importing
+      VALUE(IT_TABLE) TYPE STANDARD TABLE
+    returning
+      VALUE(RT_FIELDCAT) TYPE LVC_T_FCAT.
+  METHODS CREATE_ALV_OBJ
+    IMPORTING
+      !PARENT TYPE REF TO CL_GUI_CONTAINER
+      !DESCRIPT1 TYPE TEXT100 OPTIONAL      
+      !DESCRIPT2 TYPE TEXT100 OPTIONAL.      
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+
+  CLASS-METHODS READ_STRUCTDESCR
+    importing
+      !R_STRUCTDESCR TYPE REF TO CL_ABAP_STRUCTDESCR
+    returning
+      VALUE(T_DFIES) TYPE DDFIELDS.
+  CLASS-METHODS TRANSFORM
+    CHANGING
+      !T_DFIES TYPE DDFIELDS OPTIONAL
+      !S_DFIES TYPE DFIES OPTIONAL.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_ALV IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->ALV_DEFAULT_VARIANT
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RV_DEFAULT_VARIANT             TYPE        DISVARIANT-VARIANT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD alv_default_variant.
+
+    DATA ls_variant TYPE disvariant.
+
+    ls_variant-report = sy-cprog.
+
+    CALL FUNCTION 'REUSE_ALV_VARIANT_DEFAULT_GET'
+      EXPORTING
+        i_save        = mv_variant_save
+      CHANGING
+        cs_variant    = ls_variant
+      EXCEPTIONS
+        wrong_input   = 1
+        not_found     = 2
+        program_error = 3
+        OTHERS        = 4.
+
+    IF sy-subrc = 0.
+      rv_default_variant = ls_variant-variant.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CHANGE_FDCAT_TEXT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_GET_TEXT                    TYPE        CHAR01 (default ='X')
+* | [<-->] CT_FDCAT                       TYPE        LVC_T_FCAT(optional)
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD change_fdcat_text.
+
+    LOOP AT mt_fdcat_lvc ASSIGNING FIELD-SYMBOL(<fs_fdcat>).
+
+      CASE <fs_fdcat>-fieldname(4).
+        WHEN 'ETC_'.
+          <fs_fdcat>-no_out = abap_on.
+        WHEN 'TXT_'.
+          IF <fs_fdcat>-key <> abap_on.
+            <fs_fdcat>-emphasize = 'C301'. "Brown
+          ENDIF.
+      ENDCASE.
+
+    ENDLOOP.
+
+    ct_fdcat = mt_fdcat_lvc.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CHANGE_SLIS_TO_FDCAT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_FIELDCAT_ALV                TYPE        SLIS_T_FIELDCAT_ALV
+* | [--->] IT_DATA                        TYPE        STANDARD TABLE
+* | [<---] ET_FIELDCAT_LVC                TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD change_slis_to_fdcat.
+
+    me->clear_fdcat_slis( ).
+    me->clear_fdcat_lvc( ).
+
+    CALL FUNCTION 'LVC_TRANSFER_FROM_SLIS'
+      EXPORTING
+        it_fieldcat_alv = it_fieldcat_alv
+      IMPORTING
+        et_fieldcat_lvc = et_fieldcat_lvc[]
+      TABLES
+        it_data         = it_data
+      EXCEPTIONS
+        it_data_missing = 1
+        OTHERS          = 2.
+
+    CALL FUNCTION 'LVC_FIELDCAT_COMPLETE'
+      EXPORTING
+        i_refresh_buffer = abap_true
+      CHANGING
+        ct_fieldcat      = et_fieldcat_lvc[]
+      EXCEPTIONS
+        OTHERS           = 1.
+
+    mt_fdcat_lvc[] = et_fieldcat_lvc[].
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CLEAR_FDCAT_LVC
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD clear_fdcat_lvc.
+    CLEAR: mt_fdcat_lvc, ms_fdcat_lvc.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CLEAR_FDCAT_SLIS
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD clear_fdcat_slis.
+    CLEAR: mt_fdcat_slis, ms_fdcat_slis.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CLEAR_ROW
+* +-------------------------------------------------------------------------------------------------+
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD CLEAR_ROW.
+    CLEAR: MT_ROW, MS_ROW.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->CONSTRUCTOR
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE                        TYPE        CHAR01 (default ='X')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD constructor.
+    IF iv_type EQ abap_on.
+      ms_variant-report   = sy-cprog.
+      ms_variant-username = sy-uname.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->GET_FDCAT_LVC
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_STRUCTURE                   TYPE        TABNAME
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_fdcat_lvc.
+
+    DATA: LO_STR_TYPE TYPE REF TO CL_ABAP_STRUCTDESCR.
+
+    clear_fdcat_lvc( ).
+
+    CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+      EXPORTING
+        i_structure_name       = iv_structure
+        i_client_never_display = 'X'
+      CHANGING
+        ct_fieldcat            = mt_fdcat_lvc
+      EXCEPTIONS
+        inconsistent_interface = 1
+        program_error          = 2
+        OTHERS                 = 3.
+
+    "RAWSTRING(RSTR) 타입 필드 추가
+    LO_STR_TYPE ?= CL_ABAP_STRUCDESCR=>DESCRIBE_BY_NAME( IV_STRUCTURE ).
+    DATA(LT_DFIES) = READ_STRUCTDESCR( LO_STR_TYPE ).
+
+    LOOP AT LT_DFIES INTO DATA(LS_DFIES).
+      ASSIGN MT_FDCAT_LVC[ FIELDNAME = LS_DFIES-FIELDNAME ] TO FIELD-SYMBOL(<FS_FDCAT>).
+
+      IF SY-SUBRC NE 0 AND
+         LS_DFIES-DATATYPE = 'RSTR'.
+        APPEND INITIAL LINE TO MT_FDCAT_LVC ASSIGNING <FS_FDCAT>.
+        <FS_FDCAT> = CORRESPONDING @( LS_DFIES ).
+        <FS_FDCAT>-REF_TABLE = LS_DFIES-REFTABLE.
+        <FS_FDCAT>-REF_FIELD = LS_DFIES-REFFIELD.
+      ENDIF.
+      <FS_FDCAT>-COL_POS = LS_DFIES-POSITION.
+    ENDLOOP.
+
+    rt_fieldcat = mt_fdcat_lvc.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->GET_FDCAT_SLIS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_PROGRAM_NAME                TYPE        SY-REPID(optional)
+* | [--->] IV_INTERNAL_TABNAME            TYPE        SLIS_TABNAME(optional)
+* | [--->] IV_STRUCTURE                   TYPE        DD02L-TABNAME(optional)
+* | [--->] IV_CLIENT_NEVER_DISPLAY        TYPE        SLIS_CHAR_1(optional)
+* | [--->] IV_INCLNAME                    TYPE        TRDIR-NAME(optional)
+* | [--->] IV_BYPASSING_BUFFER            TYPE        CHAR01(optional)
+* | [--->] IV_BUFFER_ACTIVE               TYPE        CHAR01(optional)
+* | [<-()] RT_FIELDCAT                    TYPE        SLIS_T_FIELDCAT_ALV
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_fdcat_slis.
+
+    DATA: lv_program_name LIKE iv_program_name,
+          lv_inclname     LIKE iv_inclname.
+
+    CONSTANTS lc_t01 TYPE c LENGTH 3 VALUE 'T01'.
+
+    me->clear_fdcat_slis( ).
+
+    IF iv_program_name IS INITIAL.
+      lv_program_name = sy-cprog.
+    ELSE.
+      lv_program_name = iv_program_name.
+    ENDIF.
+
+    IF iv_inclname IS INITIAL.
+      lv_inclname = sy-cprog && lc_t01.
+    ELSE.
+      lv_inclname = iv_inclname.
+    ENDIF.
+
+    IF iv_internal_tabname IS INITIAL AND
+       iv_structure IS INITIAL.
+      EXIT.
+    ENDIF.
+
+    CALL FUNCTION 'REUSE_ALV_FIELDCATALOG_MERGE'
+      EXPORTING
+        i_program_name         = lv_program_name
+        i_internal_tabname     = iv_internal_tabname
+*       I_STRUCTURE_NAME       =
+*       I_CLIENT_NEVER_DISPLAY = 'X'
+        i_inclname             = lv_inclname
+*       I_BYPASSING_BUFFER     =
+*       I_BUFFER_ACTIVE        =
+      CHANGING
+        ct_fieldcat            = mt_fdcat_slis
+      EXCEPTIONS
+        inconsistent_interface = 1
+        program_error          = 2
+        OTHERS                 = 3.
+
+
+    rt_fieldcat = mt_fdcat_slis.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->GET_REFERENCE_FDCAT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_reference_fdcat.
+
+    DATA: lr_tabdescr TYPE REF TO cl_abap_structdescr,
+          lr_data     TYPE REF TO data,
+          ls_fieldcat TYPE lvc_s_fcat,
+          lt_dfies    TYPE ddfields,
+          ls_dfies    TYPE dfies.
+
+    DATA: ls_desc  TYPE sydes_desc,
+          lt_types TYPE sydes_typeinfos,
+          ls_types TYPE LINE OF sydes_typeinfos,
+          lt_names TYPE sydes_nameinfos,
+          ls_names TYPE LINE OF sydes_nameinfos.
+
+    DATA: BEGIN OF ls_fname,
+            cnt      TYPE i,
+            fullname TYPE string,
+          END OF ls_fname,
+
+          lt_fname LIKE TABLE OF ls_fname.
+
+    DATA: BEGIN OF ls_refn,
+            fname       TYPE fieldname,
+            ref_tabname TYPE tabname,
+            ref_fname   TYPE fieldname,
+          END   OF ls_refn,
+          lt_refn LIKE TABLE OF ls_refn.
+
+    DATA: lv_moff TYPE i,
+          lv_mlen TYPE i.
+
+    TRY.
+
+        "get object attribute
+        CREATE DATA lr_data LIKE LINE OF it_table[].
+
+        lr_tabdescr ?= cl_abap_structdescr=>describe_by_data_ref( lr_data ).
+        lt_dfies = READ_STRUCTDESCR( LR_TABDESCR ). "cl_salv_data_descr=>read_structdescr( lr_tabdescr ).
+
+      CATCH cx_sy_move_cast_error INTO mo_root.
+        EXIT.
+
+    ENDTRY.
+
+    DESCRIBE FIELD it_table INTO ls_desc.
+
+    "get declared name
+    IF ls_desc IS NOT INITIAL.
+
+      lt_names[] = ls_desc-names.
+      lt_types[] = ls_desc-types.
+
+      "make full name ( continue = '*' )
+      LOOP AT lt_names INTO ls_names.
+        IF ls_fname-cnt IS INITIAL.
+          ls_fname-cnt = sy-tabix.
+        ENDIF.
+
+        CONCATENATE ls_fname-fullname ls_names-name INTO ls_fname-fullname.
+
+        IF ls_names-continue IS INITIAL.
+          APPEND ls_fname TO lt_fname.
+        ELSE.
+          CLEAR ls_names.
+          CONTINUE.
+        ENDIF.
+        CLEAR: ls_fname, ls_names.
+      ENDLOOP.
+
+      SORT lt_fname BY cnt.
+
+      "assign ref. name
+      LOOP AT lt_types INTO ls_types.
+
+        CLEAR ls_fname.
+        READ TABLE lt_fname INTO ls_fname WITH KEY cnt = ls_types-idx_help_id BINARY SEARCH.
+        IF sy-subrc IS INITIAL.
+          FIND ALL OCCURRENCES OF '-' IN ls_fname-fullname
+                               MATCH OFFSET lv_moff
+                               MATCH LENGTH lv_mlen.
+          IF sy-subrc IS INITIAL. "get ref. name
+            ls_refn-ref_tabname = ls_fname-fullname(lv_moff).
+            lv_mlen = lv_moff + lv_mlen.
+            ls_refn-ref_fname = ls_fname-fullname+lv_mlen.
+          ENDIF.
+
+          CLEAR ls_fname.
+          READ TABLE lt_fname INTO ls_fname WITH KEY cnt = ls_types-idx_name BINARY SEARCH.
+          IF sy-subrc IS INITIAL. "get ref. name
+            ls_refn-fname = ls_fname-fullname.
+          ENDIF.
+
+          APPEND ls_refn TO lt_refn.
+
+        ENDIF.
+
+        CLEAR: lv_moff, lv_mlen, ls_types, ls_fname, ls_refn.
+
+      ENDLOOP.
+
+    ENDIF.
+
+    SORT lt_refn BY fname.
+
+    "make fieldcat data
+    LOOP AT lt_dfies INTO ls_dfies.
+
+      MOVE-CORRESPONDING ls_dfies TO ls_fieldcat.
+      ls_fieldcat-coltext = ls_dfies-reptext.
+      ls_fieldcat-col_pos = sy-tabix.
+
+      IF ls_fieldcat-ref_table IS INITIAL.
+        READ TABLE lt_refn INTO ls_refn WITH KEY fname = ls_dfies-fieldname BINARY SEARCH.
+        IF sy-subrc IS INITIAL.
+          ls_dfies-reftable = ls_refn-ref_tabname.
+          ls_dfies-reffield = ls_refn-ref_fname.
+        ENDIF.
+      ENDIF.
+
+      ls_fieldcat-ref_table = ls_dfies-reftable.
+      ls_fieldcat-ref_field = ls_dfies-reffield.
+
+      APPEND ls_fieldcat TO rt_fieldcat.
+      CLEAR: ls_dfies, ls_fieldcat, ls_refn.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->MAKE_FIELDCATALOG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_REPID                       TYPE        REPID (default =SY-CPROG)
+* | [--->] IV_MODE                        TYPE        CHAR01 (default ='S')
+* | [--->] IV_TABNAME                     TYPE        TABNAME(optional)
+* | [--->] IV_SET_TEXT_FIELD              TYPE        CHAR01 (default ='X')
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE(optional)
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD make_fieldcatalog.
+
+    DATA: lt_slis_fcat TYPE slis_t_fieldcat_alv.
+
+    CASE iv_mode.
+
+      WHEN 'S'. "Use standard table/structure
+
+        IF iv_tabname IS INITIAL.
+          EXIT.
+        ENDIF.
+
+        me->get_fdcat_lvc( iv_tabname ).
+
+      WHEN 'M'. "Use Fieldcat merge
+
+        IF iv_tabname IS INITIAL OR iv_repid IS INITIAL.
+          EXIT.
+        ENDIF.
+
+        lt_slis_fcat = me->get_fdcat_slis( iv_program_name     = iv_repid
+                                           iv_internal_tabname = iv_tabname ).
+
+        me->change_slis_to_fdcat( it_fieldcat_alv = lt_slis_fcat
+                                  it_data         = it_table[] ).
+
+      WHEN 'R'. "Use internal table (With Ref. ddic)
+
+        mt_fdcat_lvc = me->get_reference_fdcat( it_table ).
+
+    ENDCASE.
+
+    IF mt_fdcat_lvc IS NOT INITIAL AND
+       iv_set_text_field IS NOT INITIAL.
+      me->change_fdcat_text( ).
+      rt_fieldcat = mt_fdcat_lvc.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->SET_LAYOUT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE                        TYPE        CHAR01 (default ='1')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD SET_LAYOUT.
+
+    CLEAR MS_LAYOUT.
+
+    CASE IV_TYPE.
+      WHEN '1'.
+        MS_LAYOUT-SEL_MODE   = ZCOC_D. " A:행/열, B: 단일, C:복수, D:셀
+        MS_LAYOUT-ZEBRA      = ABAP_ON.
+        MS_LAYOUT-CWIDTH_OPT = ABAP_ON.
+        MS_LAYOUT-NO_ROWMARK = ABAP_ON.
+      WHEN '2'.
+        MS_LAYOUT-SEL_MODE   = ZCOC_D.
+        MS_LAYOUT-ZEBRA      = ABAP_ON.
+        MS_LAYOUT-CWIDTH_OPT = ABAP_ON.
+      WHEN '3'.
+        MS_LAYOUT-SEL_MODE   = ZCOC_A.
+        MS_LAYOUT-ZEBRA      = ABAP_ON.
+        MS_LAYOUT-CWIDTH_OPT = ABAP_ON.
+        MS_LAYOUT-NO_ROWINS  = ABAP_ON.
+        MS_LAYOUT-STYLEFNAME = 'CELLTAB'.
+      WHEN '4'.
+        MS_LAYOUT-CWIDTH_OPT = ABAP_OFF.
+        MS_LAYOUT-SEL_MODE   = ZCOC_A.
+        MS_LAYOUT-BOX_FNAME  = SPACE.
+        MS_LAYOUT-NO_ROWMARK = ABAP_ON.
+        MS_LAYOUT-NO_TOOLBAR = ABAP_ON.
+        MS_LAYOUT-NO_HGRIDLN = ABAP_ON.
+        MS_LAYOUT-STYLEFNAME = 'CELLTAB'.
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->SET_TOOLBAR_STD
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_TYPE                        TYPE        CHAR01 (default ='1')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_toolbar_std.
+
+    CASE iv_type.
+
+      WHEN '1'. "STANDARD
+        mt_ui_functions = VALUE #( ( cl_gui_alv_grid=>mc_fc_detail            )
+                                   ( cl_gui_alv_grid=>mc_fc_graph             )
+                                   ( cl_gui_alv_grid=>mc_fc_info              )
+                                   ( cl_gui_alv_grid=>mc_fc_check             )
+                                   ( cl_gui_alv_grid=>mc_fc_refresh           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_append_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_cut           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_undo          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste_new_row )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste         )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy_row      )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_delete_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_insert_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_views             )
+                                   ( cl_gui_alv_grid=>mc_fc_print             )
+                                  ).
+
+      WHEN '2'. "NO SORT, SUM
+        mt_ui_functions = VALUE #( ( cl_gui_alv_grid=>mc_fc_detail            )
+                                   ( cl_gui_alv_grid=>mc_fc_graph             )
+                                   ( cl_gui_alv_grid=>mc_fc_info              )
+                                   ( cl_gui_alv_grid=>mc_fc_check             )
+                                   ( cl_gui_alv_grid=>mc_fc_refresh           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_append_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_cut           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_undo          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste_new_row )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste         )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy_row      )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_delete_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_insert_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_views             )
+                                   ( cl_gui_alv_grid=>mc_fc_print             )
+                                   ( cl_gui_alv_grid=>mc_fc_sort_asc          )
+                                   ( cl_gui_alv_grid=>mc_fc_sort_dsc          )
+                                   ( cl_gui_alv_grid=>mc_mb_subtot            )
+                                   ( cl_gui_alv_grid=>mc_mb_sum               )
+                                  ).
+
+      WHEN '3'. "NO SUM
+        mt_ui_functions = VALUE #( ( cl_gui_alv_grid=>mc_fc_detail            )
+                                   ( cl_gui_alv_grid=>mc_fc_graph             )
+                                   ( cl_gui_alv_grid=>mc_fc_info              )
+                                   ( cl_gui_alv_grid=>mc_fc_check             )
+                                   ( cl_gui_alv_grid=>mc_fc_refresh           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_append_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_cut           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_undo          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste_new_row )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste         )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy_row      )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_delete_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_insert_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_views             )
+                                   ( cl_gui_alv_grid=>mc_fc_print             )
+                                   ( cl_gui_alv_grid=>mc_mb_subtot            )
+                                   ( cl_gui_alv_grid=>mc_mb_sum               )
+                                  ).
+
+      WHEN '4'. "NO SUM
+        mt_ui_functions = VALUE #( ( cl_gui_alv_grid=>mc_fc_detail            )
+                                   ( cl_gui_alv_grid=>mc_fc_graph             )
+                                   ( cl_gui_alv_grid=>mc_fc_info              )
+                                   ( cl_gui_alv_grid=>mc_fc_check             )
+                                   ( cl_gui_alv_grid=>mc_fc_refresh           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_append_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_cut           )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_undo          )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste_new_row )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_paste         )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_copy_row      )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_delete_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_loc_insert_row    )
+                                   ( cl_gui_alv_grid=>mc_fc_views             )
+                                   ( cl_gui_alv_grid=>mc_fc_print             )
+                                   ( cl_gui_alv_grid=>MC_MB_VARIANT           )
+                                  ).
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->SET_VARIANT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD set_variant.
+
+    CONSTANTS lc_p_varian TYPE fieldname VALUE 'P_VARIAN'.
+
+    DATA lt_rsparams TYPE TABLE OF rsparams.
+
+    CALL FUNCTION 'RS_REFRESH_FROM_SELECTOPTIONS'
+      EXPORTING
+        curr_report     = sy-cprog
+      TABLES
+        selection_table = lt_rsparams
+      EXCEPTIONS
+        not_found       = 1
+        no_report       = 2
+        OTHERS          = 3.
+
+    SORT lt_rsparams BY selname.
+
+    READ TABLE lt_rsparams INTO DATA(ls_rsparams) WITH KEY selname = lc_p_varian BINARY SEARCH.
+    IF sy-subrc = 0.
+      ms_variant-report   = sy-cprog.
+      ms_variant-variant  = ls_rsparams-low.
+      ms_variant-username = sy-uname.
+      IF iv_handl IS NOT INITIAL.
+        ms_variant-handle = iv_handl.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+  
+  
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->SET_DRDN_LIST
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD SET_DRDN_LIST.
+  
+  	CLEAR MT_DROPDOWN.
+  	
+  	"'1'일 경우, 도메인 값으로 목록을 만들고,
+  	"그 외의 TYPE에 대해서는 요구되는 로직에 의해 구현한다.
+  	CASE IV_TYPE.
+  	  
+  	  WHEN '1'.
+  	  
+  	    SELECT @IV_HANDLE AS HANDLE,
+  	    	     DOMVALUE_L AS INT_VALUE,
+  	    	     CASE WHEN DOMVALUE_L = ' ' THEN DDTEXT
+  	    	     ELSE CONCAT_WITH_SPACE( DOMVALUE_L, DDTEXT, 2 ) END AS value
+  	    	FROM DD07T
+  	     WHERE DOMNAME    = @IV_DOMNAME
+  	       AND DDLANGUAGE = @SY-LANGU
+  	       AND AS4LOCAL   = 'A'
+  	      INTO CORRESPONDING FIELDS OF TABLE @MT_DROPDOWN.
+  	      
+  	  WHEN '2'.
+  	  
+  	ENDCASE.
+  	
+  ENDMETHOD.
+  
+  
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->REFRESH_ALV
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* | [--->] IV_HANDL                       TYPE        SLIS_HANDL (default ='1')
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD REFRESH_ALV.
+  
+  	"DEFAULT ALV GRID INSTANCE
+  	IF IO_GRID IS NOT BOUND.
+  	  IO_GRID = MO_GRID.
+  	ENDIF.
+  	
+  	"레이아웃 적용
+  	IF IS_LAYO IS NOT INITIAL.
+  	  IO_GRID->SET_FRONTEND_LAYOUT( IS_LAYOUT = IS_LAYO ).
+  	ENDIF.
+  	
+  	"필드카탈로그 적용
+  	IF IT_FCAT IS NOT INITIAL.
+  	  IO_GRID->SET_FRONTEND_FIELDCATALOG( IT_FIELDCATALOG = IT_FCAT ).
+  	ENDIF.
+  	
+  	"SORT 적용
+  	IO_GRID->SET_SORT_CRITERIA( IT_SORT = IT_SORT ).
+  	
+  	"FILTER 적용
+  	IO_GRID->SET_FILTER_CRITERIA( IT_FILTER = IT_FILT ).
+  	
+  	"REFRESH ALV
+  	IO_GRID->REFRESH_TABLE_DISPLAY( IS_STABLE = IS_STBL ).
+
+  	IF IV_OPTA = ABAP_ON.
+  	  IO_GRID->OPTIMIZE_ALL_COL( ).
+  	ENDIF.
+  	
+  	CALL METHOD CL_GUI_CFW=>FLUSH.
+  	
+  ENDMETHOD.
+  
+  
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->GET_FIELDCATALOG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_FIELDCATALOG.
+
+    DATA: lr_tabdescr TYPE REF TO cl_abap_structdescr,
+          lr_data     TYPE REF TO data,
+          ls_fieldcat TYPE lvc_s_fcat,
+          lt_dfies    TYPE ddfields,
+          ls_dfies    TYPE dfies.
+
+    DATA: ls_desc  TYPE sydes_desc,
+          lt_types TYPE sydes_typeinfos,
+          ls_types TYPE LINE OF sydes_typeinfos,
+          lt_names TYPE sydes_nameinfos,
+          ls_names TYPE LINE OF sydes_nameinfos.
+
+    DATA: BEGIN OF ls_fname,
+            cnt      TYPE i,
+            fullname TYPE string,
+          END OF ls_fname,
+
+          lt_fname LIKE TABLE OF ls_fname.
+
+    DATA: BEGIN OF ls_refn,
+            fname       TYPE fieldname,
+            ref_tabname TYPE tabname,
+            ref_fname   TYPE fieldname,
+          END   OF ls_refn,
+          lt_refn LIKE TABLE OF ls_refn.
+
+    DATA: lv_moff TYPE i,
+          lv_mlen TYPE i.
+
+    TRY.
+
+        "get object attribute
+        CREATE DATA lr_data LIKE LINE OF it_table[].
+
+        lr_tabdescr ?= cl_abap_structdescr=>describe_by_data_ref( lr_data ).
+*        lt_dfies = cl_salv_data_descr=>read_structdescr( lr_tabdescr ).
+        LT_DFIES = READ_STRUCTDESCR( LR_TABDESCR ).
+
+      CATCH cx_sy_move_cast_error INTO DATA(mo_root).
+        EXIT.
+
+    ENDTRY.
+
+    DESCRIBE FIELD it_table INTO ls_desc.
+
+    "get declared name
+    IF ls_desc IS NOT INITIAL.
+
+      lt_names[] = ls_desc-names.
+      lt_types[] = ls_desc-types.
+
+      "make full name ( continue = '*' )
+      LOOP AT lt_names INTO ls_names.
+        IF ls_fname-cnt IS INITIAL.
+          ls_fname-cnt = sy-tabix.
+        ENDIF.
+
+        CONCATENATE ls_fname-fullname ls_names-name INTO ls_fname-fullname.
+
+        IF ls_names-continue IS INITIAL.
+          APPEND ls_fname TO lt_fname.
+        ELSE.
+          CLEAR ls_names.
+          CONTINUE.
+        ENDIF.
+        CLEAR: ls_fname, ls_names.
+      ENDLOOP.
+
+      SORT lt_fname BY cnt.
+
+      "assign ref. name
+      LOOP AT lt_types INTO ls_types.
+
+        CLEAR ls_fname.
+        READ TABLE lt_fname INTO ls_fname WITH KEY cnt = ls_types-idx_help_id BINARY SEARCH.
+        IF sy-subrc IS INITIAL.
+          FIND ALL OCCURRENCES OF '-' IN ls_fname-fullname
+                               MATCH OFFSET lv_moff
+                               MATCH LENGTH lv_mlen.
+          IF sy-subrc IS INITIAL. "get ref. name
+            ls_refn-ref_tabname = ls_fname-fullname(lv_moff).
+            lv_mlen = lv_moff + lv_mlen.
+            ls_refn-ref_fname = ls_fname-fullname+lv_mlen.
+          ENDIF.
+
+          CLEAR ls_fname.
+          READ TABLE lt_fname INTO ls_fname WITH KEY cnt = ls_types-idx_name BINARY SEARCH.
+          IF sy-subrc IS INITIAL. "get ref. name
+            ls_refn-fname = ls_fname-fullname.
+          ENDIF.
+
+          APPEND ls_refn TO lt_refn.
+
+        ENDIF.
+
+        CLEAR: lv_moff, lv_mlen, ls_types, ls_fname, ls_refn.
+
+      ENDLOOP.
+
+    ENDIF.
+
+    SORT lt_refn BY fname.
+
+    "make fieldcat data
+    LOOP AT lt_dfies INTO ls_dfies.
+
+      MOVE-CORRESPONDING ls_dfies TO ls_fieldcat.
+      ls_fieldcat-coltext = ls_dfies-reptext.
+      ls_fieldcat-col_pos = sy-tabix.
+
+      IF ls_fieldcat-ref_table IS INITIAL.
+        READ TABLE lt_refn INTO ls_refn WITH KEY fname = ls_dfies-fieldname BINARY SEARCH.
+        IF sy-subrc IS INITIAL.
+          ls_dfies-reftable = ls_refn-ref_tabname.
+          ls_dfies-reffield = ls_refn-ref_fname.
+        ENDIF.
+      ENDIF.
+
+      ls_fieldcat-ref_table = ls_dfies-reftable.
+      ls_fieldcat-ref_field = ls_dfies-reffield.
+
+      APPEND ls_fieldcat TO rt_fieldcat.
+      CLEAR: ls_dfies, ls_fieldcat, ls_refn.
+
+    ENDLOOP.
+
+  ENDMETHOD.  
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->GET_FRONT_FIELDCATALOG
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_FRONT_FIELDCATALOG.
+
+		CLEAR: R_FCAT.
+		
+		CHECK I_GRID IS NOT INITIAL.
+		
+		CALL METHOD I_GRID->GET_FRONTEND_FIELDCATALOG
+		  importing
+		    ET_FIELDCATALOG = R_FCAT.
+		    
+  ENDMETHOD.  
+
+  
+
+
+
+
+
+
+
+  METHOD CREATE_ALV_OBJ.
+
+    IF PARENT IS BOUND AND MO_GRID IS NOT BOUND.
+
+      MO_SPLIT = NEW #( PARENT = PARENT ROWS = 2 COLUMNS = 1 ).
+
+      "HEADER CONTAINER
+      IF DESCRIPT1 IS NOT INITIAL.
+        MO_HEAD1 = MO_SPLIT->GET_CONTAINER( ROW = 1 COLUMN = 1 ).
+        MO_HEADER1 = NEW #( PARENT_CONTAINER = MO_HEAD1
+                            COMPONENT        = VALUE #( ( RATIO = '100' DESCRIPT = DESCRIPT1 ) ) ).
+        MO_HEADER1->GET_CONTAINER( IMPORTING CONTAINER1 = MO_HEAD ).
+      ELSE.
+        MO_HEAD = MO_SPLIT->GET_CONTAINER( ROW = 1 COLUMN = 1 ).
+      ENDIF.
+      
+      "ALV GRID CONTAINER
+      IF DESCRIPT2 IS NOT INITIAL.
+        MO_BODY1 = MO_SPLIT->GET_CONTAINER( ROW = 2 COLUMN = 1 ).
+        MO_HEADER2 = NEW #( PARENT_CONTAINER = MO_BODY1
+                            COMPONENT        = VALUE #( ( RATIO = '100' DESCRIPT = DESCRIPT2 ) ) ).
+        MO_HEADER2->GET_CONTAINER( IMPORTING CONTAINER1 = MO_BODY ).
+      ELSE.
+        MO_BODY = MO_SPLIT->GET_CONTAINER( ROW = 2 COLUMN = 1 ).
+      ENDIF.
+  
+      "CREATE ALV GRID
+      MO_GRID = NEW #( I_PARENT = MO_BODY ).
+
+    ENDIF.
+      
+  ENDMETHOD.  
+
+
+
+
+
+
+
+
+  METHOD READ_STRUCTDESCR.
+
+    DATA: T_COMPONENTS TYPE abap_component_tab,
+          S_COMPONENTS TYPE abap_componentdescr,
+          R_TABLE      TYPE REF TO CL_ABAP_TABLEDESCR,
+          R_STRUCT     TYPE REF TO CL_ABAP_STRUCTDESCR,
+          R_ELEMENT    TYPE REF TO CL_ABAP_ELEMDESCR,
+          T_SUB_DFIES  TYPE DDFIELDS,
+          S_DFIES      TYPE DFIES.
+    CLEAR T_DFIES.
+
+    IF R_STRUCTDESCR->IS_DDIC_TYPE( ) = ABAP_TRUE.
+      T_DFIES = R_STRUCTDESCR->GET_DDIC_FIELD_LIST( ).
+      TRANSFORM( CHANGING T_DFIES = T_DFIES ).
+    ELSE.
+      T_COMPONENTS = R_STRUCTDESCR->GET_COMPONENTS( ).
+
+      LOOP AT T_COMPONENTS INTO S_COMPONENT.
+        IF S_COMPONENT-AS_INCLUDE = ABAP_TRUE.
+          R_STRUCT ?= S_COMPONENT-TYPE.
+          T_SUB_DFIES = READ_STRUCTDESCR( R_STRUCT ).
+
+        LOOP AT T_SUB_DFIES INTO S_DFIES.
+          CONCATENATE S_DFIES-FIELDName S_COMPONENT-SUFFIX INTO S_DFIES-FIELDNAME.
+
+          IF NOT S_DFIES-PRECFIELD IS INITIAL.
+            CONCATENATE S_DFIES-PRECFIELD S_COMPONENT-SUFFIX INTO S_DFIES-PRECFIELD.
+          ENDIF.
+
+          APPEND S_DFIES TO T_DFIES.
+        ENDLOOP.
+      ELSE.
+        CASE S_COMPONENT-TYPE->KIND.
+          WHEN 'E'.
+            R_ELEMENT ?= S_COMPONENT-TYPE.
+            IF R_ELEMENT->IS_DDIC_TYPE( ) = ABAP_TRUE.
+              S_DFIES = R_ELEMENT->GET_DDIC_FIELD( SY-LANGU ).
+              TRANSFORM( CHANGING S_DFIES = S_DFIES ).
+              S_DFIES-FIELDNAME = S_COMPONENT-NAME.
+              APPEND S_DFIES TO T_DFIES.
+            ELSE.
+              CLEAR S_DFIES.
+              S_DFIES-FIELDNAME = S_COMPONENT-NAME.
+              S_DFIES-INTTYPE   = R_ELEMENT->TYPE_KIND.
+              S_DFIES-LENG      = R_ELEMENT->LENGTH.
+              S_DFIES-DECIMALS  = R_ELEMENT->DECIMALS.
+              S_DFIES-CONVEXIT  = R_ELEMENT->EDIT_MASK+2(5).
+              S_DFIES-OUTPUTLEN = R_ELEMENT->OUTPUT_LENGTH.
+              S_DFIES-SIGN      = 'X'.
+              APPEND S_DFIES TO T_DFIES.
+            ENDIF.
+          WHEN 'S'.
+            R_STRUCT ?= S_COMPONENT-TYPE.
+            T_SUB_DFIES = READ_STRUCTDESCR( R_STRUCT ).
+
+            LOOP AT T_SUB_DFIES INTO S_DFIES.
+              CONCATENATE S_COMPONENT-NAME '-' S_DFIES-FIELDNAME INTO S_DFIES-FIELDNAME.
+              CONCATENATE S_COMPONENT-NAME '-' S_DFIES-PRECFIELD INTO S_DFIES-PRECFIELD.
+
+              IF NOT S_DFIES-PRECFIELD IS INITIAL.
+                CONCATENATE S_DFIES-PRECFIELD S_COMPONENT-SUFFIX INTO S_DFIES-PRECFIELD.
+              ENDIF.
+    
+              APPEND S_DFIES TO T_DFIES.
+            ENDLOOP.
+          WHEN 'T'.
+            R_TABLE ?= S_COMPONENT-TYPE.
+            DATA(LV_RELATIVE_NAME) = R_TABLE->GET_RELATIVE_NAME( ).
+
+            CLEAR S_DFIES.
+            SELECT TABNAME TABNAME FIELDNAME ROLLNAME UP TO 1 ROWS
+              FROM DD03L
+              INTO (S_DFIES-TABNAME, S_DFIES-REFTABLE, S_DFIES-REFFIELD, S_DFIES-ROLLNAME)
+             WHERE ROLLNAME = LV_RELATIVE_NAME.
+              S_DFIES-FIELDNAME = S_COMPONENT-NAME.
+              APPEND S_DFIES TO T_DFIES.
+            ENDSELECT.
+          ENDCASE.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_COC_ALV->MAKE_FIELDCATALOG2
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_MODE                        TYPE        CHAR01 (default ='S')
+* | [--->] IV_TABNAME                     TYPE        TABNAME(optional)
+* | [--->] IT_TABLE                       TYPE        STANDARD TABLE(optional)
+* | [<-()] RT_FIELDCAT                    TYPE        LVC_T_FCAT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+METHOD make_fieldcatalog2.
+
+  DATA: LRF_TABDESCR TYPE REF TO CL_ABAP_TABLEDESCR,
+        LRF_STRDESCR TYPE REF TO CL_ABAP_STRUCDESCR.
+
+  REFRESH MT_FDCAT_LVC.        
+
+  CASE iv_mode.
+
+    WHEN 'S'. "Use standard table/structure
+
+      LRF_STRDESCR ?= CL_ABAP_STRUCDESCR=>DESCRIBE_BY_NAME( IV_TABNAME ).
+
+    WHEN 'R'. "Use internal table (With Ref. ddic)
+
+      LRF_TABDESCR ?= CL_ABAP_TABLEDESCR=>DESCRIBE_BY_DATA( IT_TABLE ).
+      LRF_STRDESCR ?= LRF_TABDESCR->GET_TABLE_LINE_TYPE( ).
+
+    WHEN OTHERS.
+      EXIT.
+  ENDCASE.
+
+  DATA(LT_DFIES) = READ_STRUCTDESCR( LRF_STRDESCR ).
+
+  "FIELD CATALOG
+  LOOP AT LT_DFIES INTO DATA(LS_DFIES).
+
+    APPEND INITIAL LINE TO MT_FDCAT_LVC ASSIGNING FIELD-SYMBOL(<FS_FCAT>).
+
+    <FS_FCAT> = CORRESPONDING #( LS_DFIES ).
+    <FS_FCAT>-COL_POS   = SY-TABIX.
+    <FS_FCAT>-KEY       = LS_DFIES-KEYFLAG.
+    <FS_FCAT>-REF_TABLE = LS_DFIES-REFTABLE.
+    <FS_FCAT>-REF_FIELD = LS_DFIES-REFFIELD.
+
+    IF <FS_FCAT>-INTTYPE EQ 'P'.
+      <FS_FCAT>-INTLEN = LS_DFIES-LENG.
+    ENDIF.
+
+  ENDLOOP.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  SELECT A~*,
+         CASE WHEN A~ROLLNAME EQ ' ' AND A~TABNAME NE ' ' THEN B~DDTEXT ELSE A~REPTEXT   END AS REPTEXT,
+         CASE WHEN A~ROLLNAME EQ ' ' AND A~TABNAME NE ' ' THEN B~DDTEXT ELSE A~SCRTEXT_S END AS SCRTEXT_S,
+         CASE WHEN A~ROLLNAME EQ ' ' AND A~TABNAME NE ' ' THEN B~DDTEXT ELSE A~SCRTEXT_M END AS SCRTEXT_M,
+         CASE WHEN A~ROLLNAME EQ ' ' AND A~TABNAME NE ' ' THEN B~DDTEXT ELSE A~SCRTEXT_L END AS SCRTEXT_L
+    FROM @MT_FDCAT_LVC AS A
+    LEFT JOIN DD03T AS B ON B~TABNAME    = A~TABNAME 
+                        AND B~DDLANGUAGE = @SY-LANGU
+                        AND B~AS4LOCAL   = 'A'
+                        AND B~FIELDNAME  = A~FIELDNAME
+   ORDER BY A~COL_POS
+    INTO CORRESPONDING FIELDS OF TABLE @MT_FDCAT_LVC.
+
+    rt_fieldcat = mt_fdcat_lvc.
+
+ENDMETHOD.
+
+
+
+
+
+
+
+
+  METHOD TRANSFORM.
+
+    FIELD-SYMBOLS: <S_DFIES> TYPE DFIES.
+
+    IF S_DFIES-TABNAME EQ S_DFIES-ROLLNAME OR 
+       S_DFIES-TABNAME EQ S_DFIES-DOMNAME.
+       CLEAR S_DFIES-TABNAME.
+    ENDIF.
+
+    S_DFIES-REFTABLE = S_DFIES-TABNAME.
+    S_DFIES-REFFIELD = S_DFIES-FIELDNAME.
+    CLEAR S_DFIES-PRECFIELD.
+
+    LOOP AT T_DFIES ASSIGNING <S_DFIES>.
+      CLEAR <S_DFIES>-PRECFIELD.
+      IF <S_DFIES>-DATATYPE = 'CURR' OR <S_DFIES>-DATATYPE = 'QUAN'.
+        READ TABLE T_DFIES WITH KEY FIELDNAME = <S_DFIES>-REFFIELD
+                           TRANSPORTING NO FIELDS.
+
+        IF SY-SUBRC = 0.
+          <S_DFIES>-PRECFIELD = <S_DFIES>-REFFIELD.
+        ENDIF.
+      ENDIF.
+      <S_DFIES>-REFTABLE = <S_DFIES>-TABNAME.
+      <S_DFIES>-REFFIELD = <S_DFIES>-FIELDNAME.
+    ENDLOOP.
+
+  ENDMETHOD.
+ENDCLASS.
+

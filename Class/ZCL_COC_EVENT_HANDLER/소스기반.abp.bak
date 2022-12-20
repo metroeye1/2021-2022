@@ -1,0 +1,32 @@
+class ZCL_COC_EVENT_HANDLER definition
+  public
+  final
+  create public .
+
+public section.
+
+	DATA MV_CPROG TYPE SY-CPROG.
+	
+	
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_COC_EVENT_HANDLER IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_SCO_CHK=>AUTH_BUKRS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [<---] EV_RETURN                      TYPE        BAPIRETURN1
+* | [<-()] RV_SUBRC                       TYPE        SUBRC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD AUTH_BUKRS.
+
+  ENDMETHOD.
+
+
+ENDCLASS.

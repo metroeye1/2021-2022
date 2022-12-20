@@ -1,0 +1,89 @@
+FUNCTION ZCO_DOWNLOAD_FORM_SMW0.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     REFERENCE(I_OBJID) TYPE  W3OBJID
+*"  EXCEPTIONS
+*"      NO_FILE_FOUNDED
+*"----------------------------------------------------------------------
+  DATA : LS_WWWDATA_ITEM     LIKE WWWDATATAB,
+         L_SFULLPATH         LIKE RLGRAP-FILENAME,
+         L_FILENAME          TYPE STRING,
+
+         L_PATH              TYPE STRING,
+         L_FULLPATH          TYPE STRING,
+         L_DOCUMENT          TYPE STRING,
+         L_DEFAULT_FILE_NAME TYPE STRING,
+         L_LEN               TYPE I.
+
+  SELECT SINGLE *
+    FROM WWWDATA
+    INTO CORRESPONDING FIELDS OF LS_WWWDATA_ITEM
+   WHERE RELID = 'MI'
+     AND OBJID = I_OBJID.
+
+  IF SY-SUBRC <> 0.
+    RAISE NO_FILE_FOUNDED.
+  ENDIF.
+
+  L_FILENAME = LS_WWWDATA_ITEM-TEXT.
+  L_DEFAULT_FILE_NAME = L_FILENAME.
+  CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_SAVE_DIALOG
+    EXPORTING
+      DEFAULT_EXTENSION = 'Xlsx'
+      DEFAULT_FILE_NAME = L_DEFAULT_FILE_NAME
+    CHANGING
+      FILENAME          = L_FILENAME
+      PATH              = L_PATH
+      FULLPATH          = L_FULLPATH.
+
+  L_SFULLPATH = L_FULLPATH.
+
+  IF L_SFULLPATH IS INITIAL.
+    EXIT.
+  ELSE.
+    L_LEN = STRLEN( L_FULLPATH ).
+    IF L_LEN > 128.
+      MESSAGE I025(ZCOM2) .
+      EXIT.
+    ENDIF.
+  ENDIF.
+
+  CALL FUNCTION 'DOWNLOAD_WEB_OBJECT'
+    EXPORTING
+      KEY         = LS_WWWDATA_ITEM
+      DESTINATION = L_SFULLPATH.
+
+  L_DOCUMENT = L_SFULLPATH.
+
+  CALL METHOD CL_GUI_FRONTEND_SERVICES=>EXECUTE
+    EXPORTING
+      DOCUMENT               = L_DOCUMENT
+      OPERATION              = 'OPEN'
+    EXCEPTIONS
+      CNTL_ERROR             = 1
+      ERROR_NO_GUI           = 2
+      BAD_PARAMETER          = 3
+      FILE_NOT_FOUND         = 4
+      PATH_NOT_FOUND         = 5
+      FILE_EXTENSION_UNKNOWN = 6
+      ERROR_EXECUTE_FAILED   = 7
+      SYNCHRONOUS_FAILED     = 8
+      NOT_SUPPORTED_BY_GUI   = 9
+      OTHERS                 = 10.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+          WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+ENDFUNCTION.
+
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: ZCOM2
+*025
+
+----------------------------------------------------------------------
